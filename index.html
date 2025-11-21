@@ -2,8 +2,8 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>YoungMan</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>高清漫画阅读器 (完美点击交互版)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -13,7 +13,6 @@
             --bg-color: #121212;
             --control-bg: rgba(30, 30, 30, 0.95);
             --text-color: #eee;
-            /* 移除之前的强调色变量，不再需要 */
         }
 
         body, html {
@@ -23,13 +22,14 @@
             font-family: system-ui, -apple-system, sans-serif;
             overflow: hidden;
             user-select: none;
+            -webkit-user-select: none;
         }
 
         /* --- UI Bar --- */
         .ui-bar {
             position: fixed;
             background: var(--control-bg);
-            z-index: 500;
+            z-index: 500; /* 最高层级 */
             transition: opacity 0.3s ease, transform 0.3s ease;
             opacity: 1;
             pointer-events: auto; 
@@ -42,7 +42,6 @@
         body.ui-hidden #top-bar { transform: translateY(-100%); }
         body.ui-hidden #controls { transform: translateX(-50%) translateY(100%); }
 
-        /* 顶部栏 */
         #top-bar {
             top: 0; left: 0; right: 0;
             height: 48px;
@@ -53,7 +52,6 @@
             box-shadow: 0 1px 10px rgba(0,0,0,0.3);
         }
 
-        /* 底部栏 */
         #controls {
             bottom: 30px;
             left: 50%;
@@ -67,7 +65,6 @@
             white-space: nowrap; 
         }
 
-        /* 按钮样式 - 已去除蓝色高亮逻辑 */
         button, label.btn {
             background: transparent;
             border: 1px solid #555;
@@ -83,16 +80,13 @@
             justify-content: center;
         }
 
-        /* 鼠标悬停时的微弱高亮 (保持黑白) */
         button:hover, label.btn:hover { 
             background: rgba(255,255,255,0.15); 
             border-color: #fff; 
             color: #fff;
         }
 
-        /* 分隔线 */
         .divider { width: 1px; height: 24px; background: #555; margin: 0 4px; }
-
         input[type="file"] { display: none; }
 
         /* --- 视口与画布 --- */
@@ -101,6 +95,8 @@
             overflow: hidden;
             position: relative;
             cursor: grab;
+            touch-action: none; 
+            z-index: 1; /* 基础层级 */
         }
         #viewer-viewport.grabbing { cursor: grabbing; }
 
@@ -117,12 +113,13 @@
         }
         canvas { display: block; }
 
-        /* --- 辅助元素 --- */
+        /* --- 左右点击翻页区域 --- */
         .nav-zone {
             position: fixed; top: 0; bottom: 0;
-            width: 15%;
-            z-index: 200;
+            width: 18%; /* 稍微加宽一点，提升iPad体验 */
+            z-index: 200; /* 比 viewport 高，比 UI 低 */
             cursor: pointer;
+            /* background: rgba(255,0,0,0.1);  调试时可开启 */
         }
         #zone-left { left: 0; }
         #zone-right { right: 0; }
@@ -135,6 +132,7 @@
             padding: 15px 30px;
             border-radius: 8px;
             display: none;
+            color: #fff;
         }
         
         #toast {
@@ -154,23 +152,27 @@
 </head>
 <body>
 
+    <!-- 顶部栏 -->
     <div id="top-bar" class="ui-bar">
-        <span style="font-weight: bold;">YoungMan</span>
+        <span style="font-weight: bold;">WEB COMIC</span>
         <span id="file-name" style="font-size: 0.9em; color: #aaa;">未加载文件</span>
     </div>
 
     <div id="loader">加载中...</div>
     <div id="toast">已恢复上次阅读进度</div>
 
+    <!-- 视口 (中间区域) -->
     <div id="viewer-viewport">
         <div id="transform-layer">
             <div id="canvas-container"></div>
         </div>
     </div>
 
+    <!-- 左右点击区域 -->
     <div id="zone-left" class="nav-zone" title="翻页"></div>
     <div id="zone-right" class="nav-zone" title="翻页"></div>
 
+    <!-- 底部栏 -->
     <div id="controls" class="ui-bar">
         <label class="btn" for="file-input">打开 PDF</label>
         <input type="file" id="file-input" accept=".pdf">
@@ -205,10 +207,13 @@
                 };
 
                 this.transform = { scale: 1, x: 0, y: 0 };
+                
                 this.isDragging = false;
                 this.hasDragged = false;
                 this.dragStart = { x: 0, y: 0 };
                 this.lastTransform = { x: 0, y: 0 };
+
+                this.touchStartPos = { x: 0, y: 0 };
 
                 this.viewport = document.getElementById('viewer-viewport');
                 this.container = document.getElementById('canvas-container');
@@ -222,19 +227,20 @@
             }
 
             initEvents() {
+                // 1. 阻止工具栏冒泡：点击工具栏不触发任何底层逻辑
                 const stopPropagation = (e) => e.stopPropagation();
-                const uiElements = ['top-bar', 'controls'];
-                
-                uiElements.forEach(id => {
+                ['top-bar', 'controls'].forEach(id => {
                     const el = document.getElementById(id);
                     el.addEventListener('mousedown', stopPropagation);
                     el.addEventListener('mouseup', stopPropagation);
                     el.addEventListener('click', stopPropagation);
+                    el.addEventListener('touchstart', stopPropagation, { passive: true });
+                    el.addEventListener('touchend', stopPropagation, { passive: true });
                     el.addEventListener('wheel', stopPropagation, { passive: false });
                 });
 
+                // 2. 基础按钮绑定
                 document.getElementById('file-input').addEventListener('change', (e) => this.loadPDF(e));
-                
                 document.getElementById('btn-prev').addEventListener('click', () => this.changePage(-1));
                 document.getElementById('btn-next').addEventListener('click', () => this.changePage(1));
                 document.getElementById('btn-mode').addEventListener('click', () => this.toggleSetting('isDouble'));
@@ -242,25 +248,76 @@
                 document.getElementById('btn-offset').addEventListener('click', () => this.toggleSetting('hasCover'));
                 document.getElementById('btn-fit').addEventListener('click', () => this.fitToScreen());
 
-                document.addEventListener('keydown', (e) => {
-                    if(e.key === 'ArrowLeft') this.handleDirectionKey('left');
-                    if(e.key === 'ArrowRight') this.handleDirectionKey('right');
-                    if(e.key === ' ') this.toggleUI(); 
+                // 3. 左右区域点击 (核心逻辑修改)
+                const handleZoneClick = (e, dir) => {
+                    // 关键：停止冒泡！这样点击 zones 绝不会触发 viewport 的 toggleUI
+                    e.stopPropagation(); 
+                    e.preventDefault(); // 防止产生原生双击缩放等行为
+                    
+                    // 只有在没有发生拖拽的情况下才翻页
+                    if (!this.hasDragged) {
+                        this.handleDirectionKey(dir);
+                    }
+                };
+                document.getElementById('zone-left').addEventListener('click', (e) => handleZoneClick(e, 'left'));
+                document.getElementById('zone-right').addEventListener('click', (e) => handleZoneClick(e, 'right'));
+
+                // 4. 视口点击 (中间区域) - 切换 UI
+                this.viewport.addEventListener('click', (e) => {
+                    // 能进到这里，说明点击的不是 zones (被stopPropagation拦截了)
+                    // 也不是工具栏 (被stopPropagation拦截了)
+                    // 那么一定是点击了中间区域
+                    if (!this.hasDragged) {
+                        this.toggleUI();
+                    }
                 });
 
+                // 5. 鼠标交互 (拖拽/缩放)
                 this.viewport.addEventListener('wheel', (e) => this.handleWheel(e), { passive: false });
                 this.viewport.addEventListener('mousedown', (e) => this.handleMouseDown(e));
                 window.addEventListener('mousemove', (e) => this.handleMouseMove(e));
                 window.addEventListener('mouseup', (e) => this.handleMouseUp(e));
 
-                const handleZoneClick = (e, dir) => {
-                    e.stopPropagation();
-                    this.handleDirectionKey(dir);
-                };
-                document.getElementById('zone-left').addEventListener('click', (e) => handleZoneClick(e, 'left'));
-                document.getElementById('zone-right').addEventListener('click', (e) => handleZoneClick(e, 'right'));
+                // 6. 触摸手势 (iPad滑动翻页)
+                this.viewport.addEventListener('touchstart', (e) => this.handleTouchStart(e), { passive: true });
+                this.viewport.addEventListener('touchend', (e) => this.handleTouchEnd(e), { passive: true });
+
+                // 7. 键盘
+                document.addEventListener('keydown', (e) => {
+                    if(e.key === 'ArrowLeft') this.handleDirectionKey('left');
+                    if(e.key === 'ArrowRight') this.handleDirectionKey('right');
+                    if(e.key === ' ') this.toggleUI(); 
+                });
             }
 
+            // --- 触摸手势逻辑 ---
+            handleTouchStart(e) {
+                if (e.touches.length === 1) {
+                    this.touchStartPos.x = e.touches[0].clientX;
+                    this.touchStartPos.y = e.touches[0].clientY;
+                }
+            }
+
+            handleTouchEnd(e) {
+                if (e.changedTouches.length === 1) {
+                    const diffX = e.changedTouches[0].clientX - this.touchStartPos.x;
+                    const diffY = e.changedTouches[0].clientY - this.touchStartPos.y;
+
+                    // 放大状态下禁止滑动翻页
+                    if (this.transform.scale > 1.05) return; 
+
+                    // 水平滑动判定 (距离>50且水平幅度>垂直幅度)
+                    if (Math.abs(diffX) > 50 && Math.abs(diffX) > Math.abs(diffY)) {
+                        if (diffX > 0) this.handleDirectionKey('left');
+                        else this.handleDirectionKey('right');
+                        
+                        // 标记为已拖拽，防止 touchend 后触发 click 导致 UI 切换
+                        this.hasDragged = true;
+                    }
+                }
+            }
+
+            // --- 普通设置逻辑 ---
             toggleSetting(key) {
                 this.settings[key] = !this.settings[key];
                 this.updateUI();
@@ -274,11 +331,7 @@
 
             updateUI() {
                 const s = this.settings;
-                const setBtn = (id, text) => {
-                    const btn = document.getElementById(id);
-                    // 移除了 .active 类的添加逻辑，只更新文字
-                    btn.textContent = text;
-                };
+                const setBtn = (id, text) => document.getElementById(id).textContent = text;
                 setBtn('btn-mode', s.isDouble ? "双页" : "单页");
                 setBtn('btn-dir', s.isRTL ? "日漫(右→左)" : "美漫(左→右)");
                 setBtn('btn-offset', s.hasCover ? "独立封面:开" : "独立封面:关");
@@ -289,9 +342,7 @@
             }
 
             saveProgress() {
-                if (this.fileFingerprint) {
-                    localStorage.setItem(this.fileFingerprint, this.pageNum);
-                }
+                if (this.fileFingerprint) localStorage.setItem(this.fileFingerprint, this.pageNum);
             }
 
             loadProgress(fingerprint) {
@@ -302,9 +353,7 @@
             showToast(msg) {
                 this.toast.textContent = msg;
                 this.toast.style.opacity = 1;
-                setTimeout(() => {
-                    this.toast.style.opacity = 0;
-                }, 2000);
+                setTimeout(() => this.toast.style.opacity = 0, 2000);
             }
 
             async loadPDF(e) {
@@ -440,7 +489,8 @@
             handleMouseUp(e) {
                 this.isDragging = false;
                 this.viewport.classList.remove('grabbing');
-                if (!this.hasDragged) this.toggleUI();
+                // 注意：这里移除了 toggleUI 的逻辑，全部交给 click 事件处理
+                // 防止 mouseup 冒泡导致逻辑混乱
             }
 
             changePage(dir) {
