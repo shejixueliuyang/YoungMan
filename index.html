@@ -41,7 +41,6 @@
         }
         body.ui-hidden #top-bar { transform: translateY(-100%); }
         body.ui-hidden #controls { transform: translateX(-50%) translateY(100%); }
-        /* 菜单随之下移隐藏 */
         body.ui-hidden #menu-popup { transform: translateX(-50%) translateY(20px); }
 
         /* 顶部栏 */
@@ -71,10 +70,9 @@
 
         /* 更多菜单弹出层 */
         #menu-popup {
-            bottom: 85px; /* 距离底部稍微近一点，紧贴按钮上方 */
-            /* left 由 JS 动态计算，配合 transform 实现居中 */
+            bottom: 85px; 
             left: 50%; 
-            transform: translateX(-50%) translateY(10px); /* 初始带一点偏移用于动画 */
+            transform: translateX(-50%) translateY(10px); 
             
             padding: 16px;
             border-radius: 16px;
@@ -82,7 +80,7 @@
             flex-direction: column;
             gap: 10px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.6);
-            min-width: 180px; /* 稍微调窄一点 */
+            min-width: 180px; 
             
             visibility: hidden;
             opacity: 0;
@@ -190,6 +188,7 @@
             width: 15%;
             z-index: 200;
             cursor: pointer;
+            /* 确保点击翻页区不会触发下方的画布拖拽，但在触摸屏上可能需要调整 */
         }
         #zone-left { left: 0; }
         #zone-right { right: 0; }
@@ -324,39 +323,30 @@
                 document.getElementById('btn-next').addEventListener('click', () => this.changePage(1));
                 document.getElementById('btn-fit').addEventListener('click', () => this.fitToScreen());
                 
-                // --- 更多菜单逻辑 ---
                 const btnMenu = document.getElementById('btn-menu');
-                
-                // 更新菜单位置的函数
                 const updateMenuPosition = () => {
                     const btnRect = btnMenu.getBoundingClientRect();
-                    // 计算按钮中心点的X坐标
                     const centerX = btnRect.left + (btnRect.width / 2);
-                    // 设置给菜单的left，CSS中的translateX(-50%)会负责将其居中对齐到这个点
                     this.menuPopup.style.left = `${centerX}px`;
                 };
 
                 btnMenu.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    // 在显示前计算位置
                     updateMenuPosition();
                     this.menuPopup.classList.toggle('show');
                 });
 
-                // 窗口大小改变时，如果菜单开着，需要更新位置
                 window.addEventListener('resize', () => {
                     if(this.menuPopup.classList.contains('show')) {
                         updateMenuPosition();
                     }
                 });
 
-                // 点击外部关闭
                 window.addEventListener('click', (e) => {
                     if (this.menuPopup.classList.contains('show') && e.target !== btnMenu && !this.menuPopup.contains(e.target)) {
                         this.menuPopup.classList.remove('show');
                     }
                 });
-                // ------------------
 
                 document.getElementById('btn-mode').addEventListener('click', () => this.toggleSetting('isDouble'));
                 document.getElementById('btn-dir').addEventListener('click', () => this.toggleSetting('isRTL'));
@@ -385,7 +375,7 @@
                 });
 
                 const handleZoneClick = (e, dir) => {
-                    e.stopPropagation();
+                    e.stopPropagation(); // 阻止事件冒泡
                     if (this.menuPopup.classList.contains('show')) {
                         this.menuPopup.classList.remove('show');
                         return;
@@ -586,7 +576,16 @@
             handleMouseUp(e) {
                 this.isDragging = false;
                 this.viewport.classList.remove('grabbing');
-                if (!this.hasDragged && !this.menuPopup.contains(e.target) && e.target.id !== 'btn-menu') {
+                
+                // 1. 如果是点击菜单或菜单按钮，不处理UI显隐（由各自的点击事件处理）
+                if (this.menuPopup.contains(e.target) || e.target.id === 'btn-menu') return;
+
+                // 2. 如果是点击了左右翻页区，不处理UI显隐（由handleZoneClick处理翻页）
+                // 必须检查ID，因为 e.target 是点击的最底层元素
+                if (e.target.id === 'zone-left' || e.target.id === 'zone-right') return;
+
+                // 3. 只有当没有发生拖拽，且点击的是中间区域（canvas或viewport）时，才切换UI
+                if (!this.hasDragged) {
                      this.toggleUI();
                 }
             }
@@ -603,9 +602,19 @@
                 }
 
                 const newPage = this.pageNum + (dir * step);
+
+                // 边界检查提示
+                if (newPage < 1) {
+                    this.showToast("前面没有了");
+                    return;
+                }
+                if (newPage > this.pdfDoc.numPages) {
+                    this.showToast("后面没有了");
+                    return;
+                }
+
                 if (newPage >= 1 && newPage <= this.pdfDoc.numPages) {
                     this.pageNum = newPage;
-                    if (this.pageNum > this.pdfDoc.numPages) this.pageNum = this.pdfDoc.numPages;
                     this.render();
                 }
             }
