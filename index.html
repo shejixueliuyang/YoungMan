@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YoungMan</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    </script>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --control-bg: rgba(30, 30, 30, 0.95);
+            --text-color: #eee;
+            /* 移除之前的强调色变量，不再需要 */
+        }
+
+        body, html {
+            margin: 0; padding: 0; height: 100%; width: 100%;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: system-ui, -apple-system, sans-serif;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        /* --- UI Bar --- */
+        .ui-bar {
+            position: fixed;
+            background: var(--control-bg);
+            z-index: 500;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            opacity: 1;
+            pointer-events: auto; 
+        }
+        
+        body.ui-hidden .ui-bar {
+            opacity: 0;
+            pointer-events: none; 
+        }
+        body.ui-hidden #top-bar { transform: translateY(-100%); }
+        body.ui-hidden #controls { transform: translateX(-50%) translateY(100%); }
+
+        /* 顶部栏 */
+        #top-bar {
+            top: 0; left: 0; right: 0;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            box-shadow: 0 1px 10px rgba(0,0,0,0.3);
+        }
+
+        /* 底部栏 */
+        #controls {
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 12px 24px;
+            border-radius: 50px;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+            white-space: nowrap; 
+        }
+
+        /* 按钮样式 - 已去除蓝色高亮逻辑 */
+        button, label.btn {
+            background: transparent;
+            border: 1px solid #555;
+            color: #ddd;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+            white-space: nowrap;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* 鼠标悬停时的微弱高亮 (保持黑白) */
+        button:hover, label.btn:hover { 
+            background: rgba(255,255,255,0.15); 
+            border-color: #fff; 
+            color: #fff;
+        }
+
+        /* 分隔线 */
+        .divider { width: 1px; height: 24px; background: #555; margin: 0 4px; }
+
+        input[type="file"] { display: none; }
+
+        /* --- 视口与画布 --- */
+        #viewer-viewport {
+            width: 100vw; height: 100vh;
+            overflow: hidden;
+            position: relative;
+            cursor: grab;
+        }
+        #viewer-viewport.grabbing { cursor: grabbing; }
+
+        #transform-layer {
+            position: absolute; top: 0; left: 0;
+            transform-origin: 0 0;
+            will-change: transform;
+        }
+
+        #canvas-container {
+            display: flex;
+            align-items: center; justify-content: center;
+            gap: 0;
+        }
+        canvas { display: block; }
+
+        /* --- 辅助元素 --- */
+        .nav-zone {
+            position: fixed; top: 0; bottom: 0;
+            width: 15%;
+            z-index: 200;
+            cursor: pointer;
+        }
+        #zone-left { left: 0; }
+        #zone-right { right: 0; }
+
+        #loader {
+            position: fixed; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 600;
+            background: rgba(0,0,0,0.8);
+            padding: 15px 30px;
+            border-radius: 8px;
+            display: none;
+        }
+        
+        #toast {
+            position: fixed; top: 60px; left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 161, 214, 0.9);
+            color: white;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 14px;
+            z-index: 600;
+            opacity: 0;
+            transition: opacity 0.5s;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="top-bar" class="ui-bar">
+        <span style="font-weight: bold;">YoungMan</span>
+        <span id="file-name" style="font-size: 0.9em; color: #aaa;">未加载文件</span>
+    </div>
+
+    <div id="loader">加载中...</div>
+    <div id="toast">已恢复上次阅读进度</div>
+
+    <div id="viewer-viewport">
+        <div id="transform-layer">
+            <div id="canvas-container"></div>
+        </div>
+    </div>
+
+    <div id="zone-left" class="nav-zone" title="翻页"></div>
+    <div id="zone-right" class="nav-zone" title="翻页"></div>
+
+    <div id="controls" class="ui-bar">
+        <label class="btn" for="file-input">打开 PDF</label>
+        <input type="file" id="file-input" accept=".pdf">
+        
+        <div class="divider"></div>
+
+        <button id="btn-prev">←</button>
+        <span id="page-info" style="min-width: 70px; text-align:center; font-variant-numeric: tabular-nums;">0 / 0</span>
+        <button id="btn-next">→</button>
+
+        <div class="divider"></div>
+
+        <button id="btn-mode">双页</button>
+        <button id="btn-dir">日漫(右→左)</button>
+        <button id="btn-fit">适应屏幕</button>
+        <button id="btn-offset">独立封面:开</button>
+    </div>
+
+    <script>
+        class ComicReader {
+            constructor() {
+                this.pdfDoc = null;
+                this.pageNum = 1;
+                this.renderLock = false;
+                this.uiVisible = true;
+                this.fileFingerprint = null;
+
+                this.settings = {
+                    isDouble: true,
+                    isRTL: true,
+                    hasCover: true, 
+                };
+
+                this.transform = { scale: 1, x: 0, y: 0 };
+                this.isDragging = false;
+                this.hasDragged = false;
+                this.dragStart = { x: 0, y: 0 };
+                this.lastTransform = { x: 0, y: 0 };
+
+                this.viewport = document.getElementById('viewer-viewport');
+                this.container = document.getElementById('canvas-container');
+                this.transformLayer = document.getElementById('transform-layer');
+                this.pageInfo = document.getElementById('page-info');
+                this.loader = document.getElementById('loader');
+                this.toast = document.getElementById('toast');
+
+                this.initEvents();
+                this.updateUI();
+            }
+
+            initEvents() {
+                const stopPropagation = (e) => e.stopPropagation();
+                const uiElements = ['top-bar', 'controls'];
+                
+                uiElements.forEach(id => {
+                    const el = document.getElementById(id);
+                    el.addEventListener('mousedown', stopPropagation);
+                    el.addEventListener('mouseup', stopPropagation);
+                    el.addEventListener('click', stopPropagation);
+                    el.addEventListener('wheel', stopPropagation, { passive: false });
+                });
+
+                document.getElementById('file-input').addEventListener('change', (e) => this.loadPDF(e));
+                
+                document.getElementById('btn-prev').addEventListener('click', () => this.changePage(-1));
+                document.getElementById('btn-next').addEventListener('click', () => this.changePage(1));
+                document.getElementById('btn-mode').addEventListener('click', () => this.toggleSetting('isDouble'));
+                document.getElementById('btn-dir').addEventListener('click', () => this.toggleSetting('isRTL'));
+                document.getElementById('btn-offset').addEventListener('click', () => this.toggleSetting('hasCover'));
+                document.getElementById('btn-fit').addEventListener('click', () => this.fitToScreen());
+
+                document.addEventListener('keydown', (e) => {
+                    if(e.key === 'ArrowLeft') this.handleDirectionKey('left');
+                    if(e.key === 'ArrowRight') this.handleDirectionKey('right');
+                    if(e.key === ' ') this.toggleUI(); 
+                });
+
+                this.viewport.addEventListener('wheel', (e) => this.handleWheel(e), { passive: false });
+                this.viewport.addEventListener('mousedown', (e) => this.handleMouseDown(e));
+                window.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+                window.addEventListener('mouseup', (e) => this.handleMouseUp(e));
+
+                const handleZoneClick = (e, dir) => {
+                    e.stopPropagation();
+                    this.handleDirectionKey(dir);
+                };
+                document.getElementById('zone-left').addEventListener('click', (e) => handleZoneClick(e, 'left'));
+                document.getElementById('zone-right').addEventListener('click', (e) => handleZoneClick(e, 'right'));
+            }
+
+            toggleSetting(key) {
+                this.settings[key] = !this.settings[key];
+                this.updateUI();
+                this.render();
+            }
+
+            toggleUI() {
+                this.uiVisible = !this.uiVisible;
+                document.body.classList.toggle('ui-hidden', !this.uiVisible);
+            }
+
+            updateUI() {
+                const s = this.settings;
+                const setBtn = (id, text) => {
+                    const btn = document.getElementById(id);
+                    // 移除了 .active 类的添加逻辑，只更新文字
+                    btn.textContent = text;
+                };
+                setBtn('btn-mode', s.isDouble ? "双页" : "单页");
+                setBtn('btn-dir', s.isRTL ? "日漫(右→左)" : "美漫(左→右)");
+                setBtn('btn-offset', s.hasCover ? "独立封面:开" : "独立封面:关");
+            }
+
+            getFileFingerprint(file) {
+                return `manga-progress-${file.name}-${file.size}-${file.lastModified}`;
+            }
+
+            saveProgress() {
+                if (this.fileFingerprint) {
+                    localStorage.setItem(this.fileFingerprint, this.pageNum);
+                }
+            }
+
+            loadProgress(fingerprint) {
+                const saved = localStorage.getItem(fingerprint);
+                return saved ? parseInt(saved, 10) : 1;
+            }
+
+            showToast(msg) {
+                this.toast.textContent = msg;
+                this.toast.style.opacity = 1;
+                setTimeout(() => {
+                    this.toast.style.opacity = 0;
+                }, 2000);
+            }
+
+            async loadPDF(e) {
+                const file = e.target.files[0];
+                if (!file || file.type !== 'application/pdf') return;
+                document.getElementById('file-name').textContent = file.name;
+                this.loader.style.display = 'block';
+                
+                this.fileFingerprint = this.getFileFingerprint(file);
+
+                const buffer = await file.arrayBuffer();
+                try {
+                    this.pdfDoc = await pdfjsLib.getDocument(buffer).promise;
+                    const savedPage = this.loadProgress(this.fileFingerprint);
+                    this.pageNum = (savedPage <= this.pdfDoc.numPages) ? savedPage : 1;
+
+                    if (this.pageNum > 1) this.showToast(`已恢复到第 ${this.pageNum} 页`);
+                    this.render();
+                } catch (err) {
+                    console.error(err);
+                    alert('PDF加载失败');
+                }
+                this.loader.style.display = 'none';
+            }
+
+            async render() {
+                if (!this.pdfDoc || this.renderLock) return;
+                this.renderLock = true;
+                this.loader.style.display = 'block';
+                this.saveProgress();
+
+                let pages = [];
+                if (!this.settings.isDouble) {
+                    pages = [this.pageNum];
+                } else {
+                    if (this.settings.hasCover && this.pageNum === 1) {
+                        pages = [1];
+                    } else {
+                        let start = this.pageNum;
+                        const isStartEven = (start % 2 === 0);
+                        if (this.settings.hasCover) {
+                            if (!isStartEven) start--; 
+                            if (start < 2) start = 2;
+                        } else {
+                            if (isStartEven) start--;
+                        }
+                        if (start <= this.pdfDoc.numPages) pages.push(start);
+                        if (start + 1 <= this.pdfDoc.numPages) pages.push(start + 1);
+                    }
+                }
+
+                this.pageInfo.textContent = `${pages.join('-')} / ${this.pdfDoc.numPages}`;
+                this.container.innerHTML = '';
+                this.container.style.flexDirection = this.settings.isRTL ? 'row-reverse' : 'row';
+
+                const renderHeight = window.innerHeight * window.devicePixelRatio * 1.5;
+                let totalWidth = 0;
+                let maxHeight = 0;
+
+                for (let pNum of pages) {
+                    const canvas = document.createElement('canvas');
+                    this.container.appendChild(canvas);
+                    const page = await this.pdfDoc.getPage(pNum);
+                    const unscaledViewport = page.getViewport({ scale: 1 });
+                    const scale = renderHeight / unscaledViewport.height;
+                    const viewport = page.getViewport({ scale: scale });
+                    canvas.width = viewport.width;
+                    canvas.height = viewport.height;
+                    totalWidth += viewport.width;
+                    maxHeight = Math.max(maxHeight, viewport.height);
+                    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+                }
+
+                this.initialContentSize = { w: totalWidth, h: maxHeight };
+                this.fitToScreen();
+                this.loader.style.display = 'none';
+                this.renderLock = false;
+            }
+
+            fitToScreen() {
+                if (!this.initialContentSize) return;
+                const vpW = window.innerWidth;
+                const vpH = window.innerHeight;
+                const scale = Math.min(vpW / this.initialContentSize.w, vpH / this.initialContentSize.h) * 0.95;
+                const x = (vpW - this.initialContentSize.w * scale) / 2;
+                const y = (vpH - this.initialContentSize.h * scale) / 2;
+                this.setTransform(x, y, scale);
+            }
+
+            setTransform(x, y, scale) {
+                this.transform = { x, y, scale };
+                this.transformLayer.style.transform = `translate3d(${x}px, ${y}px, 0) scale(${scale})`;
+            }
+
+            handleWheel(e) {
+                e.preventDefault();
+                const zoomFactor = 0.1;
+                const direction = e.deltaY > 0 ? -1 : 1;
+                let newScale = this.transform.scale * (1 + direction * zoomFactor);
+                if (newScale < 0.05) newScale = 0.05;
+                if (newScale > 5) newScale = 5;
+
+                const mouseX = e.clientX;
+                const mouseY = e.clientY;
+                const oldScale = this.transform.scale;
+                
+                const newX = mouseX - (mouseX - this.transform.x) * (newScale / oldScale);
+                const newY = mouseY - (mouseY - this.transform.y) * (newScale / oldScale);
+
+                this.setTransform(newX, newY, newScale);
+            }
+
+            handleMouseDown(e) {
+                if (e.button !== 0) return;
+                this.isDragging = true;
+                this.hasDragged = false; 
+                this.dragStart = { x: e.clientX, y: e.clientY };
+                this.lastTransform = { ...this.transform };
+                this.viewport.classList.add('grabbing');
+            }
+
+            handleMouseMove(e) {
+                if (!this.isDragging) return;
+                e.preventDefault();
+                const dx = e.clientX - this.dragStart.x;
+                const dy = e.clientY - this.dragStart.y;
+                if (Math.abs(dx) > 5 || Math.abs(dy) > 5) this.hasDragged = true;
+                const newX = this.lastTransform.x + dx;
+                const newY = this.lastTransform.y + dy;
+                this.setTransform(newX, newY, this.transform.scale);
+            }
+
+            handleMouseUp(e) {
+                this.isDragging = false;
+                this.viewport.classList.remove('grabbing');
+                if (!this.hasDragged) this.toggleUI();
+            }
+
+            changePage(dir) {
+                if (!this.pdfDoc) return;
+                let step = this.settings.isDouble ? 2 : 1;
+                const pages = this.pageInfo.textContent.split(' / ')[0].split('-');
+                const isCover = (pages.length === 1 && parseInt(pages[0]) === 1);
+
+                if (this.settings.isDouble) {
+                    if (isCover && dir === 1) step = 1;
+                    if (this.pageNum === 2 && this.settings.hasCover && dir === -1) step = 1;
+                }
+
+                const newPage = this.pageNum + (dir * step);
+                if (newPage >= 1 && newPage <= this.pdfDoc.numPages) {
+                    this.pageNum = newPage;
+                    if (this.pageNum > this.pdfDoc.numPages) this.pageNum = this.pdfDoc.numPages;
+                    this.render();
+                }
+            }
+
+            handleDirectionKey(key) {
+                if (this.settings.isRTL) {
+                    if (key === 'left') this.changePage(1);
+                    else this.changePage(-1);
+                } else {
+                    if (key === 'left') this.changePage(-1);
+                    else this.changePage(1);
+                }
+            }
+        }
+
+        const reader = new ComicReader();
+    </script>
+</body>
+</html>
