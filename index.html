@@ -188,7 +188,6 @@
             width: 15%;
             z-index: 200;
             cursor: pointer;
-            /* 确保点击翻页区不会触发下方的画布拖拽，但在触摸屏上可能需要调整 */
         }
         #zone-left { left: 0; }
         #zone-right { right: 0; }
@@ -203,11 +202,16 @@
             display: none;
         }
         
+        /* 修改后的 Toast 样式: 黑白风格 */
         #toast {
             position: fixed; top: 60px; left: 50%;
             transform: translateX(-50%);
-            background: rgba(0, 161, 214, 0.9);
-            color: white;
+            
+            /* 改为深色背景 + 边框 */
+            background: rgba(40, 40, 40, 0.95);
+            border: 1px solid #555;
+            color: #fff;
+            
             padding: 8px 20px;
             border-radius: 20px;
             font-size: 14px;
@@ -215,6 +219,7 @@
             opacity: 0;
             transition: opacity 0.5s;
             pointer-events: none;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
         }
     </style>
 </head>
@@ -577,14 +582,9 @@
                 this.isDragging = false;
                 this.viewport.classList.remove('grabbing');
                 
-                // 1. 如果是点击菜单或菜单按钮，不处理UI显隐（由各自的点击事件处理）
                 if (this.menuPopup.contains(e.target) || e.target.id === 'btn-menu') return;
-
-                // 2. 如果是点击了左右翻页区，不处理UI显隐（由handleZoneClick处理翻页）
-                // 必须检查ID，因为 e.target 是点击的最底层元素
                 if (e.target.id === 'zone-left' || e.target.id === 'zone-right') return;
 
-                // 3. 只有当没有发生拖拽，且点击的是中间区域（canvas或viewport）时，才切换UI
                 if (!this.hasDragged) {
                      this.toggleUI();
                 }
@@ -603,7 +603,6 @@
 
                 const newPage = this.pageNum + (dir * step);
 
-                // 边界检查提示
                 if (newPage < 1) {
                     this.showToast("前面没有了");
                     return;
