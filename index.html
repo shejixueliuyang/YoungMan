@@ -13,6 +13,7 @@
             --bg-color: #121212;
             --control-bg: rgba(30, 30, 30, 0.95);
             --text-color: #eee;
+            --accent-color: #fff;
         }
 
         body, html {
@@ -35,13 +36,15 @@
         }
         
         body.ui-hidden .ui-bar, 
-        body.ui-hidden #menu-popup { 
+        body.ui-hidden #menu-popup,
+        body.ui-hidden #slider-popup { 
             opacity: 0;
             pointer-events: none; 
         }
         body.ui-hidden #top-bar { transform: translateY(-100%); }
         body.ui-hidden #controls { transform: translateX(-50%) translateY(100%); }
         body.ui-hidden #menu-popup { transform: translateX(-50%) translateY(20px); }
+        body.ui-hidden #slider-popup { transform: translateX(-50%) translateY(20px); }
 
         /* 顶部栏 */
         #top-bar {
@@ -59,13 +62,89 @@
             bottom: 30px;
             left: 50%;
             transform: translateX(-50%);
-            padding: 12px 24px;
+            padding: 8px 16px;
             border-radius: 50px;
             display: flex;
-            gap: 12px;
+            gap: 8px;
             align-items: center;
             box-shadow: 0 4px 20px rgba(0,0,0,0.6);
             white-space: nowrap; 
+        }
+
+        /* 页码点击区域 */
+        #page-info {
+            min-width: 60px;
+            text-align: center;
+            font-variant-numeric: tabular-nums;
+            padding: 5px 10px;
+            font-size: 14px;
+            cursor: pointer;
+            border-radius: 10px;
+            transition: background 0.2s;
+        }
+        #page-info:hover {
+            background: rgba(255,255,255,0.1);
+        }
+
+        /* 进度条弹窗 */
+        #slider-popup {
+            position: fixed;
+            bottom: 85px; /* 在控制栏上方 */
+            left: 50%;
+            transform: translateX(-50%);
+            width: 280px;
+            background: var(--control-bg);
+            padding: 15px 20px;
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            align-items: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+            z-index: 500;
+            
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+
+        #slider-popup.show {
+            visibility: visible;
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        #slider-preview {
+            font-size: 14px;
+            color: #ddd;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* 自定义滑块样式 */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+            cursor: pointer;
+        }
+        input[type=range]:focus { outline: none; }
+        
+        /* 滑块轨道 */
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            background: #555;
+            border-radius: 2px;
+        }
+        /* 滑块圆钮 */
+        input[type=range]::-webkit-slider-thumb {
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #fff;
+            margin-top: -6px; /* 居中 */
+            -webkit-appearance: none;
+            box-shadow: 0 0 5px rgba(0,0,0,0.5);
         }
 
         /* 更多菜单弹出层 */
@@ -73,7 +152,6 @@
             bottom: 85px; 
             left: 50%; 
             transform: translateX(-50%) translateY(10px); 
-            
             padding: 16px;
             border-radius: 16px;
             display: flex;
@@ -81,7 +159,6 @@
             gap: 10px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.6);
             min-width: 180px; 
-            
             visibility: hidden;
             opacity: 0;
             transition: opacity 0.2s ease, transform 0.2s ease;
@@ -112,6 +189,7 @@
             background: rgba(255, 255, 255, 0.1);
             border: 1px solid #777;
             cursor: pointer;
+            color: #eee;
         }
         #btn-open-big:hover {
             background: rgba(255, 255, 255, 0.2);
@@ -119,7 +197,7 @@
             color: #fff;
         }
 
-        /* 按钮样式 */
+        /* 按钮通用样式 */
         button, label.btn {
             background: transparent;
             border: 1px solid #555;
@@ -136,6 +214,28 @@
             text-align: center;
         }
 
+        /* 底部图标按钮特殊样式 */
+        #controls button {
+            padding: 8px;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            border: 1px solid transparent;
+        }
+        
+        #controls button:hover {
+            background: rgba(255,255,255,0.15);
+            border-color: #777;
+            color: #fff;
+        }
+
+        #controls button svg {
+            width: 24px;
+            height: 24px;
+            fill: currentColor;
+        }
+
+        /* 菜单内的按钮保持长条形 */
         #menu-popup button, #menu-popup label.btn {
             width: 100%;
             box-sizing: border-box;
@@ -146,12 +246,6 @@
         }
         #menu-popup button:hover, #menu-popup label.btn:hover {
             background: rgba(255,255,255,0.1);
-        }
-
-        #controls button:hover { 
-            background: rgba(255,255,255,0.15); 
-            border-color: #fff; 
-            color: #fff;
         }
 
         /* 分隔线 */
@@ -183,15 +277,6 @@
         canvas { display: block; }
 
         /* --- 辅助元素 --- */
-        .nav-zone {
-            position: fixed; top: 0; bottom: 0;
-            width: 15%;
-            z-index: 200;
-            cursor: pointer;
-        }
-        #zone-left { left: 0; }
-        #zone-right { right: 0; }
-
         #loader {
             position: fixed; top: 50%; left: 50%;
             transform: translate(-50%, -50%);
@@ -202,16 +287,12 @@
             display: none;
         }
         
-        /* 修改后的 Toast 样式: 黑白风格 */
         #toast {
             position: fixed; top: 60px; left: 50%;
             transform: translateX(-50%);
-            
-            /* 改为深色背景 + 边框 */
             background: rgba(40, 40, 40, 0.95);
             border: 1px solid #555;
             color: #fff;
-            
             padding: 8px 20px;
             border-radius: 20px;
             font-size: 14px;
@@ -244,8 +325,11 @@
         </div>
     </div>
 
-    <div id="zone-left" class="nav-zone" title="翻页"></div>
-    <div id="zone-right" class="nav-zone" title="翻页"></div>
+    <!-- 进度条滑块浮层 -->
+    <div id="slider-popup">
+        <span id="slider-preview">第 1 页</span>
+        <input type="range" id="page-slider" min="1" max="1" value="1">
+    </div>
 
     <!-- 更多设置菜单 -->
     <div id="menu-popup" class="ui-bar">
@@ -260,14 +344,25 @@
     <div id="controls" class="ui-bar">
         <input type="file" id="file-input" accept=".pdf">
         
-        <button id="btn-prev">←</button>
-        <span id="page-info" style="min-width: 70px; text-align:center; font-variant-numeric: tabular-nums;">0 / 0</span>
-        <button id="btn-next">→</button>
+        <!-- 页码信息，添加点击提示 -->
+        <span id="page-info" title="点击调整进度">0 / 0</span>
 
         <div class="divider"></div>
 
-        <button id="btn-fit">适应屏幕</button>
-        <button id="btn-menu">更多</button>
+        <!-- 适应屏幕 (重置) -->
+        <button id="btn-fit" title="适应屏幕">
+            <svg viewBox="0 0 24 24"><path d="M12 5V2L8 6l4 4V7c3.31 0 6 2.69 6 6 0 2.97-2.17 5.43-5 5.91v2.02c3.95-.49 7-3.85 7-7.93 0-4.42-3.58-8-8-8zm-6 8c0-1.65.67-3.15 1.76-4.24L6.35 7.35C4.9 8.8 4 10.79 4 13c0 4.08 3.05 7.44 7 7.93v-2.02c-2.83-.48-5-2.94-5-5.91z"/></svg>
+        </button>
+        
+        <!-- 全屏 -->
+        <button id="btn-fullscreen" title="全屏">
+            <svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+        </button>
+        
+        <!-- 更多 -->
+        <button id="btn-menu" title="更多选项">
+            <svg viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
+        </button>
     </div>
 
     <script>
@@ -285,6 +380,11 @@
                     hasCover: true, 
                 };
 
+                this.icons = {
+                    enterFullscreen: '<svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>',
+                    exitFullscreen: '<svg viewBox="0 0 24 24"><path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-14v3h3v2h-5V5z"/></svg>'
+                };
+
                 this.transform = { scale: 1, x: 0, y: 0 };
                 this.isDragging = false;
                 this.hasDragged = false;
@@ -299,6 +399,11 @@
                 this.toast = document.getElementById('toast');
                 this.emptyState = document.getElementById('empty-state');
                 this.menuPopup = document.getElementById('menu-popup');
+                
+                // 滑块相关元素
+                this.sliderPopup = document.getElementById('slider-popup');
+                this.pageSlider = document.getElementById('page-slider');
+                this.sliderPreview = document.getElementById('slider-preview');
 
                 this.initEvents();
                 this.updateUI();
@@ -306,7 +411,8 @@
 
             initEvents() {
                 const stopPropagation = (e) => e.stopPropagation();
-                const uiElements = ['top-bar', 'controls', 'menu-popup', 'empty-state'];
+                // 增加 slider-popup 到防冒泡列表
+                const uiElements = ['top-bar', 'controls', 'menu-popup', 'empty-state', 'slider-popup'];
                 
                 uiElements.forEach(id => {
                     const el = document.getElementById(id);
@@ -324,10 +430,11 @@
                     fileInput.click();
                 });
 
-                document.getElementById('btn-prev').addEventListener('click', () => this.changePage(-1));
-                document.getElementById('btn-next').addEventListener('click', () => this.changePage(1));
                 document.getElementById('btn-fit').addEventListener('click', () => this.fitToScreen());
+                document.getElementById('btn-fullscreen').addEventListener('click', () => this.toggleFullscreen());
+                document.addEventListener('fullscreenchange', () => this.updateFullscreenIcon());
                 
+                // 菜单逻辑
                 const btnMenu = document.getElementById('btn-menu');
                 const updateMenuPosition = () => {
                     const btnRect = btnMenu.getBoundingClientRect();
@@ -337,19 +444,45 @@
 
                 btnMenu.addEventListener('click', (e) => {
                     e.stopPropagation();
+                    this.sliderPopup.classList.remove('show'); // 互斥
                     updateMenuPosition();
                     this.menuPopup.classList.toggle('show');
                 });
 
-                window.addEventListener('resize', () => {
-                    if(this.menuPopup.classList.contains('show')) {
-                        updateMenuPosition();
-                    }
+                // --- 滑块逻辑开始 ---
+                
+                // 点击页码显示滑块
+                this.pageInfo.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (!this.pdfDoc) return;
+                    this.menuPopup.classList.remove('show'); // 互斥
+                    this.sliderPopup.classList.toggle('show');
                 });
 
+                // 滑块拖动中（input事件）：更新预览文字，不渲染
+                this.pageSlider.addEventListener('input', (e) => {
+                    this.sliderPreview.textContent = `第 ${e.target.value} 页`;
+                });
+
+                // 滑块松手/改变后（change事件）：正式跳转
+                this.pageSlider.addEventListener('change', (e) => {
+                    const targetPage = parseInt(e.target.value, 10);
+                    this.jumpToPage(targetPage);
+                });
+
+                // --- 滑块逻辑结束 ---
+
+                window.addEventListener('resize', () => {
+                    if(this.menuPopup.classList.contains('show')) updateMenuPosition();
+                });
+
+                // 点击空白处关闭所有弹窗
                 window.addEventListener('click', (e) => {
                     if (this.menuPopup.classList.contains('show') && e.target !== btnMenu && !this.menuPopup.contains(e.target)) {
                         this.menuPopup.classList.remove('show');
+                    }
+                    if (this.sliderPopup.classList.contains('show') && e.target !== this.pageInfo && !this.sliderPopup.contains(e.target)) {
+                        this.sliderPopup.classList.remove('show');
                     }
                 });
 
@@ -378,17 +511,6 @@
                         }
                     }
                 });
-
-                const handleZoneClick = (e, dir) => {
-                    e.stopPropagation(); // 阻止事件冒泡
-                    if (this.menuPopup.classList.contains('show')) {
-                        this.menuPopup.classList.remove('show');
-                        return;
-                    }
-                    this.handleDirectionKey(dir);
-                };
-                document.getElementById('zone-left').addEventListener('click', (e) => handleZoneClick(e, 'left'));
-                document.getElementById('zone-right').addEventListener('click', (e) => handleZoneClick(e, 'right'));
             }
 
             toggleSetting(key) {
@@ -402,6 +524,30 @@
                 document.body.classList.toggle('ui-hidden', !this.uiVisible);
                 if (!this.uiVisible) {
                     this.menuPopup.classList.remove('show');
+                    this.sliderPopup.classList.remove('show');
+                }
+            }
+
+            toggleFullscreen() {
+                if (!document.fullscreenElement) {
+                    document.documentElement.requestFullscreen().catch(err => {
+                        console.error(`Error attempting to enable fullscreen: ${err.message}`);
+                    });
+                } else {
+                    if (document.exitFullscreen) {
+                        document.exitFullscreen();
+                    }
+                }
+            }
+
+            updateFullscreenIcon() {
+                const btn = document.getElementById('btn-fullscreen');
+                if (document.fullscreenElement) {
+                    btn.innerHTML = this.icons.exitFullscreen;
+                    btn.title = "退出全屏";
+                } else {
+                    btn.innerHTML = this.icons.enterFullscreen;
+                    btn.title = "全屏";
                 }
             }
 
@@ -450,12 +596,17 @@
                 document.getElementById('file-name').textContent = file.name;
                 this.loader.style.display = 'block';
                 this.menuPopup.classList.remove('show');
+                this.sliderPopup.classList.remove('show');
                 
                 this.fileFingerprint = this.getFileFingerprint(file);
 
                 const buffer = await file.arrayBuffer();
                 try {
                     this.pdfDoc = await pdfjsLib.getDocument(buffer).promise;
+                    
+                    // 设置滑块最大值
+                    this.pageSlider.max = this.pdfDoc.numPages;
+
                     const savedPage = this.loadProgress(this.fileFingerprint);
                     this.pageNum = (savedPage <= this.pdfDoc.numPages) ? savedPage : 1;
 
@@ -476,6 +627,10 @@
                 this.renderLock = true;
                 this.loader.style.display = 'block';
                 this.saveProgress();
+
+                // 更新滑块状态
+                this.pageSlider.value = this.pageNum;
+                this.sliderPreview.textContent = `第 ${this.pageNum} 页`;
 
                 let pages = [];
                 if (!this.settings.isDouble) {
@@ -583,11 +738,30 @@
                 this.viewport.classList.remove('grabbing');
                 
                 if (this.menuPopup.contains(e.target) || e.target.id === 'btn-menu') return;
-                if (e.target.id === 'zone-left' || e.target.id === 'zone-right') return;
+                // 防止点击滑块弹窗关闭UI
+                if (this.sliderPopup.contains(e.target) || e.target.id === 'page-info') return;
 
                 if (!this.hasDragged) {
-                     this.toggleUI();
+                    const width = window.innerWidth;
+                    const x = e.clientX;
+                    const third = width / 3;
+
+                    if (x < third) {
+                        this.handleDirectionKey('left');
+                    } else if (x > third * 2) {
+                        this.handleDirectionKey('right');
+                    } else {
+                        this.toggleUI();
+                    }
                 }
+            }
+
+            jumpToPage(num) {
+                if (!this.pdfDoc) return;
+                if (num < 1) num = 1;
+                if (num > this.pdfDoc.numPages) num = this.pdfDoc.numPages;
+                this.pageNum = num;
+                this.render();
             }
 
             changePage(dir) {
