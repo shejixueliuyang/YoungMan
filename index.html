@@ -349,14 +349,9 @@
 
         <div class="divider"></div>
 
-        <!-- 适应屏幕 (重置) -->
+        <!-- 适应屏幕 (改回方框图标) -->
         <button id="btn-fit" title="适应屏幕">
-            <svg viewBox="0 0 24 24"><path d="M12 5V2L8 6l4 4V7c3.31 0 6 2.69 6 6 0 2.97-2.17 5.43-5 5.91v2.02c3.95-.49 7-3.85 7-7.93 0-4.42-3.58-8-8-8zm-6 8c0-1.65.67-3.15 1.76-4.24L6.35 7.35C4.9 8.8 4 10.79 4 13c0 4.08 3.05 7.44 7 7.93v-2.02c-2.83-.48-5-2.94-5-5.91z"/></svg>
-        </button>
-        
-        <!-- 全屏 -->
-        <button id="btn-fullscreen" title="全屏">
-            <svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+            <svg viewBox="0 0 24 24"><path d="M4 4h4v2H6v2H4V4zm14 0h-4v2h2v2h2V4zM4 20h4v-2H6v-2H4v4zm14 0h-4v-2h2v-2h2v4z"/></svg>
         </button>
         
         <!-- 更多 -->
@@ -378,11 +373,6 @@
                     isDouble: true,
                     isRTL: true,
                     hasCover: true, 
-                };
-
-                this.icons = {
-                    enterFullscreen: '<svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>',
-                    exitFullscreen: '<svg viewBox="0 0 24 24"><path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-14v3h3v2h-5V5z"/></svg>'
                 };
 
                 this.transform = { scale: 1, x: 0, y: 0 };
@@ -431,8 +421,6 @@
                 });
 
                 document.getElementById('btn-fit').addEventListener('click', () => this.fitToScreen());
-                document.getElementById('btn-fullscreen').addEventListener('click', () => this.toggleFullscreen());
-                document.addEventListener('fullscreenchange', () => this.updateFullscreenIcon());
                 
                 // 菜单逻辑
                 const btnMenu = document.getElementById('btn-menu');
@@ -525,29 +513,6 @@
                 if (!this.uiVisible) {
                     this.menuPopup.classList.remove('show');
                     this.sliderPopup.classList.remove('show');
-                }
-            }
-
-            toggleFullscreen() {
-                if (!document.fullscreenElement) {
-                    document.documentElement.requestFullscreen().catch(err => {
-                        console.error(`Error attempting to enable fullscreen: ${err.message}`);
-                    });
-                } else {
-                    if (document.exitFullscreen) {
-                        document.exitFullscreen();
-                    }
-                }
-            }
-
-            updateFullscreenIcon() {
-                const btn = document.getElementById('btn-fullscreen');
-                if (document.fullscreenElement) {
-                    btn.innerHTML = this.icons.exitFullscreen;
-                    btn.title = "退出全屏";
-                } else {
-                    btn.innerHTML = this.icons.enterFullscreen;
-                    btn.title = "全屏";
                 }
             }
 
