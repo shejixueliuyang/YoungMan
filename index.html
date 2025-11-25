@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>YoungMan - HighRes</title>
+    <title>YoungMan - DoubleTap</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -223,7 +223,7 @@
         .menu-divider { width: 100%; height: 1px; background: #444; margin: 4px 0; }
         input[type="file"] { display: none; }
 
-        /* --- 核心渲染区域优化 --- */
+        /* --- 核心渲染区域 --- */
         #viewer-viewport {
             width: 100vw; height: 100vh;
             overflow: hidden;
@@ -242,16 +242,11 @@
             gap: 0;
         }
         
-        /* 
-           Canvas 优化：
-           1. image-rendering: 确保缩放时使用高质量插值
-           2. filter: 增加轻微对比度和饱和度，去除扫描件的"灰蒙蒙"感
-        */
         canvas { 
             display: block; 
-            image-rendering: -webkit-optimize-contrast; /* Webkit 专用清晰度优化 */
+            image-rendering: -webkit-optimize-contrast;
             image-rendering: high-quality;
-            filter: contrast(1.08) brightness(1.02); /* 视觉增强：增加对比度 */
+            filter: contrast(1.08) brightness(1.02);
         }
 
         #loader {
@@ -347,6 +342,7 @@
                 this.dragStart = { x: 0, y: 0 };
                 this.lastTransform = { x: 0, y: 0 };
 
+                // 触控与双击相关变量
                 this.isPinching = false;
                 this.touchStartDist = 0;
                 this.lastTouchDist = 0;
@@ -354,6 +350,10 @@
                 this.twoFingerTapStartTime = 0;
                 this.blockSingleAction = false; 
                 this.lastTouchTime = 0; 
+
+                // 双击判定计时器
+                this.clickTimer = null;
+                this.lastTapTime = 0;
 
                 this.viewport = document.getElementById('viewer-viewport');
                 this.container = document.getElementById('canvas-container');
@@ -561,7 +561,6 @@
                     }
                     this.isPinching = false;
                     this.isDragging = false; 
-
                     if (e.touches.length === 0) {
                         setTimeout(() => { this.blockSingleAction = false; }, 50);
                     }
@@ -580,9 +579,28 @@
                         const touch = e.changedTouches[0];
                         if (!this.isUITarget(touch.target)) {
                             if (e.cancelable) e.preventDefault(); 
-                            this.handleZoneAction(touch.clientX);
+                            // 传入坐标进行防抖判定
+                            this.handleClickWithDebounce(touch.clientX);
                         }
                     }
+                }
+            }
+
+            // --- 点击防抖逻辑 (实现双击复位) ---
+            handleClickWithDebounce(clientX) {
+                const now = Date.now();
+                // 250ms内第二次点击 -> 双击复位
+                if (now - this.lastTapTime < 250) {
+                    clearTimeout(this.clickTimer);
+                    this.fitToScreen();
+                    this.lastTapTime = 0; // 重置防止触发三连击
+                } else {
+                    // 第一次点击 -> 延迟执行单击逻辑
+                    this.lastTapTime = now;
+                    this.clickTimer = setTimeout(() => {
+                        this.handleZoneAction(clientX);
+                        this.lastTapTime = 0;
+                    }, 250);
                 }
             }
 
@@ -620,7 +638,8 @@
                 if (this.isUITarget(e.target)) return;
 
                 if (!this.hasDragged) {
-                     this.handleZoneAction(e.clientX);
+                     // 鼠标也使用防抖逻辑，支持PC双击复位
+                     this.handleClickWithDebounce(e.clientX);
                 }
             }
 
@@ -738,8 +757,6 @@
                 this.container.innerHTML = '';
                 this.container.style.flexDirection = this.settings.isRTL ? 'row-reverse' : 'row';
 
-                // --- 渲染清晰度优化 ---
-                // 使用更高的倍率 (3.0) 并在 CSS 中缩小显示，以获得高DPI下的锐利效果
                 const renderHeight = window.innerHeight * window.devicePixelRatio * 3.0;
                 let totalWidth = 0;
                 let maxHeight = 0;
