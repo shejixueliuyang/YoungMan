@@ -308,7 +308,7 @@
 <body>
 
     <div id="top-bar" class="ui-bar">
-        <span style="font-weight: bold;">YoungMan</span>
+        <span style="font-weight: bold;">YoungMan1</span>
         <span id="file-name" style="font-size: 0.9em; color: #aaa;">未加载文件</span>
     </div>
 
@@ -389,7 +389,7 @@
                 this.isTwoFingerTapCandidate = false;
                 this.twoFingerTapStartTime = 0;
                 this.blockSingleAction = false; 
-                this.lastTouchTime = 0; // 关键修复：用于屏蔽伪造的鼠标事件
+                this.lastTouchTime = 0; 
 
                 this.viewport = document.getElementById('viewer-viewport');
                 this.container = document.getElementById('canvas-container');
@@ -410,6 +410,7 @@
 
             initEvents() {
                 const stopPropagation = (e) => e.stopPropagation();
+                // 增加 slider-popup 到防冒泡列表
                 const uiElements = ['top-bar', 'controls', 'menu-popup', 'empty-state', 'slider-popup'];
                 
                 uiElements.forEach(id => {
@@ -419,7 +420,7 @@
                     el.addEventListener('mouseup', stopPropagation);
                     el.addEventListener('click', stopPropagation);
                     el.addEventListener('wheel', stopPropagation, { passive: false });
-                    // 添加 touchstart 阻止冒泡，防止点击 UI 时穿透
+                    // 添加 touchstart 阻止冒泡
                     el.addEventListener('touchstart', stopPropagation, { passive: false });
                 });
 
@@ -512,7 +513,6 @@
                 });
             }
 
-            // 判断是否点击在UI元素上
             isUITarget(target) {
                 return target.closest('.ui-bar') || target.closest('#slider-popup') || target.closest('#menu-popup');
             }
@@ -521,14 +521,17 @@
             handleTouchStart(e) {
                 if (this.isUITarget(e.target)) return;
                 
-                this.lastTouchTime = Date.now(); // 记录触摸时间
+                this.lastTouchTime = Date.now(); 
 
                 // 双指逻辑
                 if (e.touches.length === 2) {
                     e.preventDefault();
                     this.isPinching = true;
-                    this.blockSingleAction = true;
+                    this.blockSingleAction = true; 
                     
+                    // 修复跳动：双指开始时，强制关闭拖拽
+                    this.isDragging = false; 
+
                     this.isTwoFingerTapCandidate = true;
                     this.twoFingerTapStartTime = Date.now();
                     
@@ -585,8 +588,8 @@
                     return; 
                 }
 
-                // 单指拖拽
-                if (e.touches.length === 1 && this.isDragging) {
+                // 单指拖拽 - 修复跳动：增加 !this.blockSingleAction 判断
+                if (e.touches.length === 1 && this.isDragging && !this.blockSingleAction) {
                     const touch = e.touches[0];
                     const dx = touch.clientX - this.dragStart.x;
                     const dy = touch.clientY - this.dragStart.y;
@@ -612,6 +615,10 @@
                         }
                     }
                     this.isPinching = false;
+                    
+                    // 修复跳动：双指松开后，严禁剩余手指继续拖拽
+                    this.isDragging = false; 
+
                     if (e.touches.length === 0) {
                         setTimeout(() => { this.blockSingleAction = false; }, 50);
                     }
@@ -630,7 +637,6 @@
                     if (!this.hasDragged) {
                         const touch = e.changedTouches[0];
                         if (!this.isUITarget(touch.target)) {
-                            // 阻止默认事件，防止产生 click 事件，解决翻两页问题
                             if (e.cancelable) e.preventDefault(); 
                             this.handleZoneAction(touch.clientX);
                         }
@@ -655,7 +661,7 @@
 
             handleMouseDown(e) {
                 if (e.button !== 0) return;
-                // 如果最近500ms内有触摸事件，则忽略鼠标事件（防止混合设备重复触发）
+                // 防止触摸后又触发鼠标事件
                 if (Date.now() - this.lastTouchTime < 500) return; 
                 if (this.isUITarget(e.target)) return; 
 
@@ -667,7 +673,6 @@
             }
 
             handleMouseUp(e) {
-                // 同样屏蔽触摸后的模拟鼠标事件
                 if (Date.now() - this.lastTouchTime < 500) return; 
 
                 this.isDragging = false;
@@ -750,7 +755,6 @@
                 try {
                     this.pdfDoc = await pdfjsLib.getDocument(buffer).promise;
                     
-                    // 设置滑块最大值
                     this.pageSlider.max = this.pdfDoc.numPages;
 
                     const savedPage = this.loadProgress(this.fileFingerprint);
@@ -774,7 +778,6 @@
                 this.loader.style.display = 'block';
                 this.saveProgress();
 
-                // 更新滑块状态
                 this.pageSlider.value = this.pageNum;
                 this.sliderPreview.textContent = `第 ${this.pageNum} 页`;
 
