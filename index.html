@@ -23,7 +23,7 @@
             font-family: system-ui, -apple-system, sans-serif;
             overflow: hidden;
             user-select: none;
-            touch-action: none; /* 禁止浏览器默认的缩放和滚动行为，交由JS处理 */
+            touch-action: none; /* 禁止浏览器默认行为 */
         }
 
         /* --- UI Bar --- */
@@ -385,7 +385,9 @@
                 // 触控相关变量
                 this.isPinching = false;
                 this.touchStartDist = 0;
-                this.touchActionTriggered = false; // 防止手势过程中重复触发
+                this.lastTouchDist = 0;
+                this.isTwoFingerTapCandidate = false;
+                this.twoFingerTapStartTime = 0;
 
                 this.viewport = document.getElementById('viewer-viewport');
                 this.container = document.getElementById('canvas-container');
@@ -508,20 +510,26 @@
 
             // --- 触控手势逻辑 ---
             handleTouchStart(e) {
-                // 如果是双指，记录初始距离
+                // 双指逻辑
                 if (e.touches.length === 2) {
+                    e.preventDefault();
                     this.isPinching = true;
-                    this.touchActionTriggered = false; // 重置触发标志
-                    this.touchStartDist = Math.hypot(
-                        e.touches[0].clientX - e.touches[1].clientX,
-                        e.touches[0].clientY - e.touches[1].clientY
-                    );
+                    
+                    // 记录初始状态，用于双指点击判定
+                    this.isTwoFingerTapCandidate = true;
+                    this.twoFingerTapStartTime = Date.now();
+                    
+                    const p1 = e.touches[0];
+                    const p2 = e.touches[1];
+                    const dist = Math.hypot(p1.clientX - p2.clientX, p1.clientY - p2.clientY);
+                    
+                    this.touchStartDist = dist; // 用于判定是否发生过大幅移动
+                    this.lastTouchDist = dist;  // 用于计算缩放比例
                 }
                 
-                // 简单的单指拖拽兼容（映射到鼠标逻辑）
+                // 单指兼容
                 if (e.touches.length === 1) {
                     const touch = e.touches[0];
-                    // 创建一个模拟的鼠标事件对象
                     const mouseEvent = {
                         button: 0,
                         clientX: touch.clientX,
@@ -533,38 +541,40 @@
             }
 
             handleTouchMove(e) {
-                // 双指缩放手势处理
+                // 双指缩放逻辑
                 if (this.isPinching && e.touches.length === 2) {
-                    e.preventDefault(); // 阻止浏览器缩放
+                    e.preventDefault();
+                    
+                    const p1 = e.touches[0];
+                    const p2 = e.touches[1];
+                    const currentDist = Math.hypot(p1.clientX - p2.clientX, p1.clientY - p2.clientY);
 
-                    if (this.touchActionTriggered) return; // 如果已经触发过，就不再触发
-
-                    const currentDist = Math.hypot(
-                        e.touches[0].clientX - e.touches[1].clientX,
-                        e.touches[0].clientY - e.touches[1].clientY
-                    );
-
-                    const threshold = 60; // 触发阈值（像素）
-
-                    // 张开 (Pinch Out) -> 放大 -> 切换到单页模式
-                    if (currentDist - this.touchStartDist > threshold) {
-                        if (this.settings.isDouble) {
-                            this.settings.isDouble = false; // 切换为单页
-                            this.showToast("已切换: 单页模式");
-                            this.updateUI();
-                            this.render();
-                            this.touchActionTriggered = true;
-                        }
+                    // 1. 如果移动距离超过一定阈值，则不是双指点击，而是缩放
+                    if (Math.abs(currentDist - this.touchStartDist) > 10) {
+                        this.isTwoFingerTapCandidate = false;
                     }
-                    // 捏合 (Pinch In) -> 缩小 -> 切换到双页模式
-                    else if (this.touchStartDist - currentDist > threshold) {
-                        if (!this.settings.isDouble) {
-                            this.settings.isDouble = true; // 切换为双页
-                            this.showToast("已切换: 双页模式");
-                            this.updateUI();
-                            this.render();
-                            this.touchActionTriggered = true;
-                        }
+
+                    // 2. 执行缩放 (Pinch Zoom)
+                    if (this.lastTouchDist > 0) {
+                        const zoomFactor = currentDist / this.lastTouchDist;
+                        let newScale = this.transform.scale * zoomFactor;
+
+                        // 缩放限制
+                        if (newScale < 0.05) newScale = 0.05;
+                        if (newScale > 5) newScale = 5;
+
+                        // 计算双指中心点
+                        const centerX = (p1.clientX + p2.clientX) / 2;
+                        const centerY = (p1.clientY + p2.clientY) / 2;
+                        
+                        const oldScale = this.transform.scale;
+                        
+                        // 基于中心点计算新的位置，实现"向中心缩放"
+                        const newX = centerX - (centerX - this.transform.x) * (newScale / oldScale);
+                        const newY = centerY - (centerY - this.transform.y) * (newScale / oldScale);
+
+                        this.setTransform(newX, newY, newScale);
+                        this.lastTouchDist = currentDist;
                     }
                     return; 
                 }
@@ -584,18 +594,24 @@
 
             handleTouchEnd(e) {
                 if (this.isPinching && e.touches.length < 2) {
+                    // 检查是否符合双指点击 (Tap) 条件
+                    // 条件：没有发生大幅移动 (isTwoFingerTapCandidate 为 true) 且 时间短
+                    if (this.isTwoFingerTapCandidate) {
+                        const duration = Date.now() - this.twoFingerTapStartTime;
+                        if (duration < 300) { // 300毫秒内松开
+                            this.toggleSetting('isDouble');
+                            this.showToast(this.settings.isDouble ? "已切换: 双页模式" : "已切换: 单页模式");
+                        }
+                    }
                     this.isPinching = false;
                 }
                 
                 // 拖拽结束兼容
                 if (this.isDragging && e.touches.length === 0) {
-                    // 模拟鼠标抬起
-                    // 注意：这里我们只能传递 changedTouches 里的最后一个位置
-                    // 但 handleMouseUp 主要用于点击判定和结束拖拽，位置不是最关键
                     const touch = e.changedTouches[0];
                     const mouseEvent = {
                         target: e.target,
-                        clientX: touch.clientX, // 用于判定点击区域
+                        clientX: touch.clientX,
                     };
                     this.handleMouseUp(mouseEvent);
                 }
