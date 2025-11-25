@@ -350,7 +350,7 @@
 
         <div class="divider"></div>
 
-        <!-- 适应屏幕 -->
+        <!-- 适应屏幕 (方框图标) -->
         <button id="btn-fit" title="适应屏幕">
             <svg viewBox="0 0 24 24"><path d="M4 4h4v2H6v2H4V4zm14 0h-4v2h2v2h2V4zM4 20h4v-2H6v-2H4v4zm14 0h-4v-2h2v-2h2v4z"/></svg>
         </button>
@@ -388,6 +388,7 @@
                 this.lastTouchDist = 0;
                 this.isTwoFingerTapCandidate = false;
                 this.twoFingerTapStartTime = 0;
+                this.blockSingleAction = false; // 阻断单指操作标记
 
                 this.viewport = document.getElementById('viewer-viewport');
                 this.container = document.getElementById('canvas-container');
@@ -398,7 +399,6 @@
                 this.emptyState = document.getElementById('empty-state');
                 this.menuPopup = document.getElementById('menu-popup');
                 
-                // 滑块相关元素
                 this.sliderPopup = document.getElementById('slider-popup');
                 this.pageSlider = document.getElementById('page-slider');
                 this.sliderPreview = document.getElementById('slider-preview');
@@ -428,7 +428,9 @@
                     fileInput.click();
                 });
 
-                document.getElementById('btn-fit').addEventListener('click', () => this.fitToScreen());
+                document.getElementById('btn-fit').addEventListener('click', (e) => {
+                    this.fitToScreen();
+                });
                 
                 // 菜单逻辑
                 const btnMenu = document.getElementById('btn-menu');
@@ -485,7 +487,7 @@
                     if(e.key === ' ') this.toggleUI(); 
                 });
 
-                // 鼠标/触控事件
+                // 鼠标/触控事件 - 绑定到 viewport 避免干扰 UI
                 this.viewport.addEventListener('wheel', (e) => this.handleWheel(e), { passive: false });
                 this.viewport.addEventListener('mousedown', (e) => this.handleMouseDown(e));
                 window.addEventListener('mousemove', (e) => this.handleMouseMove(e));
@@ -508,12 +510,20 @@
                 });
             }
 
+            // 判断是否点击在UI元素上
+            isUITarget(target) {
+                return target.closest('.ui-bar') || target.closest('#slider-popup') || target.closest('#menu-popup');
+            }
+
             // --- 触控手势逻辑 ---
             handleTouchStart(e) {
+                if (this.isUITarget(e.target)) return; // UI交互交给浏览器
+
                 // 双指逻辑
                 if (e.touches.length === 2) {
                     e.preventDefault();
                     this.isPinching = true;
+                    this.blockSingleAction = true; // 锁定单指操作
                     
                     // 记录初始状态，用于双指点击判定
                     this.isTwoFingerTapCandidate = true;
@@ -523,24 +533,25 @@
                     const p2 = e.touches[1];
                     const dist = Math.hypot(p1.clientX - p2.clientX, p1.clientY - p2.clientY);
                     
-                    this.touchStartDist = dist; // 用于判定是否发生过大幅移动
-                    this.lastTouchDist = dist;  // 用于计算缩放比例
-                }
-                
-                // 单指兼容
-                if (e.touches.length === 1) {
+                    this.touchStartDist = dist; 
+                    this.lastTouchDist = dist; 
+                } 
+                // 单指逻辑
+                else if (e.touches.length === 1) {
+                    // 不在这里 preventDefault，否则无法触发点击事件
+                    // 只有移动时才视为拖拽
+                    this.blockSingleAction = false;
                     const touch = e.touches[0];
-                    const mouseEvent = {
-                        button: 0,
-                        clientX: touch.clientX,
-                        clientY: touch.clientY,
-                        preventDefault: () => {}
-                    };
-                    this.handleMouseDown(mouseEvent);
+                    this.isDragging = true;
+                    this.hasDragged = false;
+                    this.dragStart = { x: touch.clientX, y: touch.clientY };
+                    this.lastTransform = { ...this.transform };
                 }
             }
 
             handleTouchMove(e) {
+                if (this.isUITarget(e.target)) return;
+
                 // 双指缩放逻辑
                 if (this.isPinching && e.touches.length === 2) {
                     e.preventDefault();
@@ -549,27 +560,23 @@
                     const p2 = e.touches[1];
                     const currentDist = Math.hypot(p1.clientX - p2.clientX, p1.clientY - p2.clientY);
 
-                    // 1. 如果移动距离超过一定阈值，则不是双指点击，而是缩放
+                    // 如果移动距离超过一定阈值，则不是双指点击，而是缩放
                     if (Math.abs(currentDist - this.touchStartDist) > 10) {
                         this.isTwoFingerTapCandidate = false;
                     }
 
-                    // 2. 执行缩放 (Pinch Zoom)
+                    // 执行缩放
                     if (this.lastTouchDist > 0) {
                         const zoomFactor = currentDist / this.lastTouchDist;
                         let newScale = this.transform.scale * zoomFactor;
 
-                        // 缩放限制
                         if (newScale < 0.05) newScale = 0.05;
                         if (newScale > 5) newScale = 5;
 
-                        // 计算双指中心点
                         const centerX = (p1.clientX + p2.clientX) / 2;
                         const centerY = (p1.clientY + p2.clientY) / 2;
-                        
                         const oldScale = this.transform.scale;
                         
-                        // 基于中心点计算新的位置，实现"向中心缩放"
                         const newX = centerX - (centerX - this.transform.x) * (newScale / oldScale);
                         const newY = centerY - (centerY - this.transform.y) * (newScale / oldScale);
 
@@ -579,44 +586,74 @@
                     return; 
                 }
 
-                // 单指拖拽兼容
+                // 单指拖拽
                 if (e.touches.length === 1 && this.isDragging) {
-                    e.preventDefault();
                     const touch = e.touches[0];
-                    const mouseEvent = {
-                        clientX: touch.clientX,
-                        clientY: touch.clientY,
-                        preventDefault: () => {}
-                    };
-                    this.handleMouseMove(mouseEvent);
+                    const dx = touch.clientX - this.dragStart.x;
+                    const dy = touch.clientY - this.dragStart.y;
+                    
+                    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+                         this.hasDragged = true;
+                         e.preventDefault(); // 确认是拖拽后，禁止默认行为
+                         const newX = this.lastTransform.x + dx;
+                         const newY = this.lastTransform.y + dy;
+                         this.setTransform(newX, newY, this.transform.scale);
+                    }
                 }
             }
 
             handleTouchEnd(e) {
                 if (this.isPinching && e.touches.length < 2) {
-                    // 检查是否符合双指点击 (Tap) 条件
-                    // 条件：没有发生大幅移动 (isTwoFingerTapCandidate 为 true) 且 时间短
+                    // 2指变少，检查双指点击
                     if (this.isTwoFingerTapCandidate) {
                         const duration = Date.now() - this.twoFingerTapStartTime;
-                        if (duration < 300) { // 300毫秒内松开
+                        if (duration < 300) { 
                             this.toggleSetting('isDouble');
                             this.showToast(this.settings.isDouble ? "已切换: 双页模式" : "已切换: 单页模式");
                         }
                     }
                     this.isPinching = false;
+                    // 保持 blockSingleAction 为 true 直到所有手指离开，防止后续触发单击
+                    if (e.touches.length === 0) {
+                        setTimeout(() => { this.blockSingleAction = false; }, 50);
+                    }
+                    return;
                 }
                 
-                // 拖拽结束兼容
+                // 单指结束
                 if (this.isDragging && e.touches.length === 0) {
-                    const touch = e.changedTouches[0];
-                    const mouseEvent = {
-                        target: e.target,
-                        clientX: touch.clientX,
-                    };
-                    this.handleMouseUp(mouseEvent);
+                    this.isDragging = false;
+                    
+                    if (this.blockSingleAction) {
+                        this.blockSingleAction = false;
+                        return;
+                    }
+
+                    if (!this.hasDragged) {
+                        // 这是一个点击
+                        const touch = e.changedTouches[0];
+                        // 确保点击的不是UI
+                        if (!this.isUITarget(touch.target)) {
+                            this.handleZoneAction(touch.clientX);
+                        }
+                    }
                 }
             }
             // --- 触控手势逻辑结束 ---
+
+            // 统一的区域点击判定
+            handleZoneAction(clientX) {
+                const width = window.innerWidth;
+                const third = width / 3;
+
+                if (clientX < third) {
+                    this.handleDirectionKey('left');
+                } else if (clientX > third * 2) {
+                    this.handleDirectionKey('right');
+                } else {
+                    this.toggleUI();
+                }
+            }
 
             toggleSetting(key) {
                 this.settings[key] = !this.settings[key];
@@ -797,6 +834,8 @@
 
             handleMouseDown(e) {
                 if (e.button !== 0) return;
+                if (this.isUITarget(e.target)) return; 
+
                 this.isDragging = true;
                 this.hasDragged = false; 
                 this.dragStart = { x: e.clientX, y: e.clientY };
@@ -819,22 +858,10 @@
                 this.isDragging = false;
                 this.viewport.classList.remove('grabbing');
                 
-                if (this.menuPopup.contains(e.target) || e.target.id === 'btn-menu') return;
-                // 防止点击滑块弹窗关闭UI
-                if (this.sliderPopup.contains(e.target) || e.target.id === 'page-info') return;
+                if (this.isUITarget(e.target)) return;
 
                 if (!this.hasDragged) {
-                    const width = window.innerWidth;
-                    const x = e.clientX;
-                    const third = width / 3;
-
-                    if (x < third) {
-                        this.handleDirectionKey('left');
-                    } else if (x > third * 2) {
-                        this.handleDirectionKey('right');
-                    } else {
-                        this.toggleUI();
-                    }
+                     this.handleZoneAction(e.clientX);
                 }
             }
 
