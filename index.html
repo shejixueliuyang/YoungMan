@@ -308,7 +308,7 @@
 <body>
 
     <div id="top-bar" class="ui-bar">
-        <span style="font-weight: bold;">YoungMan1</span>
+        <span style="font-weight: bold;">YoungMan</span>
         <span id="file-name" style="font-size: 0.9em; color: #aaa;">未加载文件</span>
     </div>
 
@@ -350,7 +350,7 @@
 
         <div class="divider"></div>
 
-        <!-- 适应屏幕 (方框图标) -->
+        <!-- 适应屏幕 -->
         <button id="btn-fit" title="适应屏幕">
             <svg viewBox="0 0 24 24"><path d="M4 4h4v2H6v2H4V4zm14 0h-4v2h2v2h2V4zM4 20h4v-2H6v-2H4v4zm14 0h-4v-2h2v-2h2v4z"/></svg>
         </button>
@@ -388,7 +388,8 @@
                 this.lastTouchDist = 0;
                 this.isTwoFingerTapCandidate = false;
                 this.twoFingerTapStartTime = 0;
-                this.blockSingleAction = false; // 阻断单指操作标记
+                this.blockSingleAction = false; 
+                this.lastTouchTime = 0; // 关键修复：用于屏蔽伪造的鼠标事件
 
                 this.viewport = document.getElementById('viewer-viewport');
                 this.container = document.getElementById('canvas-container');
@@ -409,7 +410,6 @@
 
             initEvents() {
                 const stopPropagation = (e) => e.stopPropagation();
-                // 增加 slider-popup 到防冒泡列表
                 const uiElements = ['top-bar', 'controls', 'menu-popup', 'empty-state', 'slider-popup'];
                 
                 uiElements.forEach(id => {
@@ -419,6 +419,8 @@
                     el.addEventListener('mouseup', stopPropagation);
                     el.addEventListener('click', stopPropagation);
                     el.addEventListener('wheel', stopPropagation, { passive: false });
+                    // 添加 touchstart 阻止冒泡，防止点击 UI 时穿透
+                    el.addEventListener('touchstart', stopPropagation, { passive: false });
                 });
 
                 const fileInput = document.getElementById('file-input');
@@ -442,7 +444,7 @@
 
                 btnMenu.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    this.sliderPopup.classList.remove('show'); // 互斥
+                    this.sliderPopup.classList.remove('show');
                     updateMenuPosition();
                     this.menuPopup.classList.toggle('show');
                 });
@@ -451,7 +453,7 @@
                 this.pageInfo.addEventListener('click', (e) => {
                     e.stopPropagation();
                     if (!this.pdfDoc) return;
-                    this.menuPopup.classList.remove('show'); // 互斥
+                    this.menuPopup.classList.remove('show');
                     this.sliderPopup.classList.toggle('show');
                 });
 
@@ -487,7 +489,7 @@
                     if(e.key === ' ') this.toggleUI(); 
                 });
 
-                // 鼠标/触控事件 - 绑定到 viewport 避免干扰 UI
+                // 鼠标/触控事件
                 this.viewport.addEventListener('wheel', (e) => this.handleWheel(e), { passive: false });
                 this.viewport.addEventListener('mousedown', (e) => this.handleMouseDown(e));
                 window.addEventListener('mousemove', (e) => this.handleMouseMove(e));
@@ -517,15 +519,16 @@
 
             // --- 触控手势逻辑 ---
             handleTouchStart(e) {
-                if (this.isUITarget(e.target)) return; // UI交互交给浏览器
+                if (this.isUITarget(e.target)) return;
+                
+                this.lastTouchTime = Date.now(); // 记录触摸时间
 
                 // 双指逻辑
                 if (e.touches.length === 2) {
                     e.preventDefault();
                     this.isPinching = true;
-                    this.blockSingleAction = true; // 锁定单指操作
+                    this.blockSingleAction = true;
                     
-                    // 记录初始状态，用于双指点击判定
                     this.isTwoFingerTapCandidate = true;
                     this.twoFingerTapStartTime = Date.now();
                     
@@ -538,8 +541,6 @@
                 } 
                 // 单指逻辑
                 else if (e.touches.length === 1) {
-                    // 不在这里 preventDefault，否则无法触发点击事件
-                    // 只有移动时才视为拖拽
                     this.blockSingleAction = false;
                     const touch = e.touches[0];
                     this.isDragging = true;
@@ -560,12 +561,10 @@
                     const p2 = e.touches[1];
                     const currentDist = Math.hypot(p1.clientX - p2.clientX, p1.clientY - p2.clientY);
 
-                    // 如果移动距离超过一定阈值，则不是双指点击，而是缩放
                     if (Math.abs(currentDist - this.touchStartDist) > 10) {
                         this.isTwoFingerTapCandidate = false;
                     }
 
-                    // 执行缩放
                     if (this.lastTouchDist > 0) {
                         const zoomFactor = currentDist / this.lastTouchDist;
                         let newScale = this.transform.scale * zoomFactor;
@@ -594,7 +593,7 @@
                     
                     if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
                          this.hasDragged = true;
-                         e.preventDefault(); // 确认是拖拽后，禁止默认行为
+                         e.preventDefault();
                          const newX = this.lastTransform.x + dx;
                          const newY = this.lastTransform.y + dy;
                          this.setTransform(newX, newY, this.transform.scale);
@@ -603,8 +602,8 @@
             }
 
             handleTouchEnd(e) {
+                // 如果是双指松开
                 if (this.isPinching && e.touches.length < 2) {
-                    // 2指变少，检查双指点击
                     if (this.isTwoFingerTapCandidate) {
                         const duration = Date.now() - this.twoFingerTapStartTime;
                         if (duration < 300) { 
@@ -613,14 +612,13 @@
                         }
                     }
                     this.isPinching = false;
-                    // 保持 blockSingleAction 为 true 直到所有手指离开，防止后续触发单击
                     if (e.touches.length === 0) {
                         setTimeout(() => { this.blockSingleAction = false; }, 50);
                     }
                     return;
                 }
                 
-                // 单指结束
+                // 如果是单指松开
                 if (this.isDragging && e.touches.length === 0) {
                     this.isDragging = false;
                     
@@ -630,10 +628,10 @@
                     }
 
                     if (!this.hasDragged) {
-                        // 这是一个点击
                         const touch = e.changedTouches[0];
-                        // 确保点击的不是UI
                         if (!this.isUITarget(touch.target)) {
+                            // 阻止默认事件，防止产生 click 事件，解决翻两页问题
+                            if (e.cancelable) e.preventDefault(); 
                             this.handleZoneAction(touch.clientX);
                         }
                     }
@@ -654,6 +652,35 @@
                     this.toggleUI();
                 }
             }
+
+            handleMouseDown(e) {
+                if (e.button !== 0) return;
+                // 如果最近500ms内有触摸事件，则忽略鼠标事件（防止混合设备重复触发）
+                if (Date.now() - this.lastTouchTime < 500) return; 
+                if (this.isUITarget(e.target)) return; 
+
+                this.isDragging = true;
+                this.hasDragged = false; 
+                this.dragStart = { x: e.clientX, y: e.clientY };
+                this.lastTransform = { ...this.transform };
+                this.viewport.classList.add('grabbing');
+            }
+
+            handleMouseUp(e) {
+                // 同样屏蔽触摸后的模拟鼠标事件
+                if (Date.now() - this.lastTouchTime < 500) return; 
+
+                this.isDragging = false;
+                this.viewport.classList.remove('grabbing');
+                
+                if (this.isUITarget(e.target)) return;
+
+                if (!this.hasDragged) {
+                     this.handleZoneAction(e.clientX);
+                }
+            }
+
+            // ... (其余方法保持不变) ...
 
             toggleSetting(key) {
                 this.settings[key] = !this.settings[key];
@@ -832,17 +859,6 @@
                 this.setTransform(newX, newY, newScale);
             }
 
-            handleMouseDown(e) {
-                if (e.button !== 0) return;
-                if (this.isUITarget(e.target)) return; 
-
-                this.isDragging = true;
-                this.hasDragged = false; 
-                this.dragStart = { x: e.clientX, y: e.clientY };
-                this.lastTransform = { ...this.transform };
-                this.viewport.classList.add('grabbing');
-            }
-
             handleMouseMove(e) {
                 if (!this.isDragging) return;
                 e.preventDefault();
@@ -852,17 +868,6 @@
                 const newX = this.lastTransform.x + dx;
                 const newY = this.lastTransform.y + dy;
                 this.setTransform(newX, newY, this.transform.scale);
-            }
-
-            handleMouseUp(e) {
-                this.isDragging = false;
-                this.viewport.classList.remove('grabbing');
-                
-                if (this.isUITarget(e.target)) return;
-
-                if (!this.hasDragged) {
-                     this.handleZoneAction(e.clientX);
-                }
             }
 
             jumpToPage(num) {
