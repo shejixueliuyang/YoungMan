@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>YoungMan</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script>
@@ -23,6 +23,7 @@
             font-family: system-ui, -apple-system, sans-serif;
             overflow: hidden;
             user-select: none;
+            touch-action: none; /* 禁止浏览器默认的缩放和滚动行为，交由JS处理 */
         }
 
         /* --- UI Bar --- */
@@ -349,7 +350,7 @@
 
         <div class="divider"></div>
 
-        <!-- 适应屏幕 (改回方框图标) -->
+        <!-- 适应屏幕 -->
         <button id="btn-fit" title="适应屏幕">
             <svg viewBox="0 0 24 24"><path d="M4 4h4v2H6v2H4V4zm14 0h-4v2h2v2h2V4zM4 20h4v-2H6v-2H4v4zm14 0h-4v-2h2v-2h2v4z"/></svg>
         </button>
@@ -380,6 +381,11 @@
                 this.hasDragged = false;
                 this.dragStart = { x: 0, y: 0 };
                 this.lastTransform = { x: 0, y: 0 };
+
+                // 触控相关变量
+                this.isPinching = false;
+                this.touchStartDist = 0;
+                this.touchActionTriggered = false; // 防止手势过程中重复触发
 
                 this.viewport = document.getElementById('viewer-viewport');
                 this.container = document.getElementById('canvas-container');
@@ -437,9 +443,7 @@
                     this.menuPopup.classList.toggle('show');
                 });
 
-                // --- 滑块逻辑开始 ---
-                
-                // 点击页码显示滑块
+                // --- 滑块逻辑 ---
                 this.pageInfo.addEventListener('click', (e) => {
                     e.stopPropagation();
                     if (!this.pdfDoc) return;
@@ -447,24 +451,19 @@
                     this.sliderPopup.classList.toggle('show');
                 });
 
-                // 滑块拖动中（input事件）：更新预览文字，不渲染
                 this.pageSlider.addEventListener('input', (e) => {
                     this.sliderPreview.textContent = `第 ${e.target.value} 页`;
                 });
 
-                // 滑块松手/改变后（change事件）：正式跳转
                 this.pageSlider.addEventListener('change', (e) => {
                     const targetPage = parseInt(e.target.value, 10);
                     this.jumpToPage(targetPage);
                 });
 
-                // --- 滑块逻辑结束 ---
-
                 window.addEventListener('resize', () => {
                     if(this.menuPopup.classList.contains('show')) updateMenuPosition();
                 });
 
-                // 点击空白处关闭所有弹窗
                 window.addEventListener('click', (e) => {
                     if (this.menuPopup.classList.contains('show') && e.target !== btnMenu && !this.menuPopup.contains(e.target)) {
                         this.menuPopup.classList.remove('show');
@@ -484,10 +483,16 @@
                     if(e.key === ' ') this.toggleUI(); 
                 });
 
+                // 鼠标/触控事件
                 this.viewport.addEventListener('wheel', (e) => this.handleWheel(e), { passive: false });
                 this.viewport.addEventListener('mousedown', (e) => this.handleMouseDown(e));
                 window.addEventListener('mousemove', (e) => this.handleMouseMove(e));
                 window.addEventListener('mouseup', (e) => this.handleMouseUp(e));
+
+                // 触摸手势事件 (Touch)
+                window.addEventListener('touchstart', (e) => this.handleTouchStart(e), { passive: false });
+                window.addEventListener('touchmove', (e) => this.handleTouchMove(e), { passive: false });
+                window.addEventListener('touchend', (e) => this.handleTouchEnd(e));
 
                 window.addEventListener('dragover', (e) => e.preventDefault());
                 window.addEventListener('drop', (e) => {
@@ -500,6 +505,102 @@
                     }
                 });
             }
+
+            // --- 触控手势逻辑 ---
+            handleTouchStart(e) {
+                // 如果是双指，记录初始距离
+                if (e.touches.length === 2) {
+                    this.isPinching = true;
+                    this.touchActionTriggered = false; // 重置触发标志
+                    this.touchStartDist = Math.hypot(
+                        e.touches[0].clientX - e.touches[1].clientX,
+                        e.touches[0].clientY - e.touches[1].clientY
+                    );
+                }
+                
+                // 简单的单指拖拽兼容（映射到鼠标逻辑）
+                if (e.touches.length === 1) {
+                    const touch = e.touches[0];
+                    // 创建一个模拟的鼠标事件对象
+                    const mouseEvent = {
+                        button: 0,
+                        clientX: touch.clientX,
+                        clientY: touch.clientY,
+                        preventDefault: () => {}
+                    };
+                    this.handleMouseDown(mouseEvent);
+                }
+            }
+
+            handleTouchMove(e) {
+                // 双指缩放手势处理
+                if (this.isPinching && e.touches.length === 2) {
+                    e.preventDefault(); // 阻止浏览器缩放
+
+                    if (this.touchActionTriggered) return; // 如果已经触发过，就不再触发
+
+                    const currentDist = Math.hypot(
+                        e.touches[0].clientX - e.touches[1].clientX,
+                        e.touches[0].clientY - e.touches[1].clientY
+                    );
+
+                    const threshold = 60; // 触发阈值（像素）
+
+                    // 张开 (Pinch Out) -> 放大 -> 切换到单页模式
+                    if (currentDist - this.touchStartDist > threshold) {
+                        if (this.settings.isDouble) {
+                            this.settings.isDouble = false; // 切换为单页
+                            this.showToast("已切换: 单页模式");
+                            this.updateUI();
+                            this.render();
+                            this.touchActionTriggered = true;
+                        }
+                    }
+                    // 捏合 (Pinch In) -> 缩小 -> 切换到双页模式
+                    else if (this.touchStartDist - currentDist > threshold) {
+                        if (!this.settings.isDouble) {
+                            this.settings.isDouble = true; // 切换为双页
+                            this.showToast("已切换: 双页模式");
+                            this.updateUI();
+                            this.render();
+                            this.touchActionTriggered = true;
+                        }
+                    }
+                    return; 
+                }
+
+                // 单指拖拽兼容
+                if (e.touches.length === 1 && this.isDragging) {
+                    e.preventDefault();
+                    const touch = e.touches[0];
+                    const mouseEvent = {
+                        clientX: touch.clientX,
+                        clientY: touch.clientY,
+                        preventDefault: () => {}
+                    };
+                    this.handleMouseMove(mouseEvent);
+                }
+            }
+
+            handleTouchEnd(e) {
+                if (this.isPinching && e.touches.length < 2) {
+                    this.isPinching = false;
+                }
+                
+                // 拖拽结束兼容
+                if (this.isDragging && e.touches.length === 0) {
+                    // 模拟鼠标抬起
+                    // 注意：这里我们只能传递 changedTouches 里的最后一个位置
+                    // 但 handleMouseUp 主要用于点击判定和结束拖拽，位置不是最关键
+                    const touch = e.changedTouches[0];
+                    const mouseEvent = {
+                        target: e.target,
+                        clientX: touch.clientX, // 用于判定点击区域
+                    };
+                    this.handleMouseUp(mouseEvent);
+                }
+            }
+            // --- 触控手势逻辑结束 ---
 
             toggleSetting(key) {
                 this.settings[key] = !this.settings[key];
