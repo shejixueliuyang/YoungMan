@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>YoungMan</title>
+    <title>YoungMan - HighRes</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -23,7 +23,7 @@
             font-family: system-ui, -apple-system, sans-serif;
             overflow: hidden;
             user-select: none;
-            touch-action: none; /* 禁止浏览器默认行为 */
+            touch-action: none;
         }
 
         /* --- UI Bar --- */
@@ -90,7 +90,7 @@
         /* 进度条弹窗 */
         #slider-popup {
             position: fixed;
-            bottom: 85px; /* 在控制栏上方 */
+            bottom: 85px; 
             left: 50%;
             transform: translateX(-50%);
             width: 280px;
@@ -103,25 +103,20 @@
             align-items: center;
             box-shadow: 0 4px 20px rgba(0,0,0,0.6);
             z-index: 500;
-            
             visibility: hidden;
             opacity: 0;
             transition: opacity 0.2s ease, transform 0.2s ease;
         }
-
         #slider-popup.show {
             visibility: visible;
             opacity: 1;
             transform: translateX(-50%) translateY(0);
         }
-
         #slider-preview {
             font-size: 14px;
             color: #ddd;
             font-variant-numeric: tabular-nums;
         }
-
-        /* 自定义滑块样式 */
         input[type=range] {
             -webkit-appearance: none;
             width: 100%;
@@ -129,26 +124,23 @@
             cursor: pointer;
         }
         input[type=range]:focus { outline: none; }
-        
-        /* 滑块轨道 */
         input[type=range]::-webkit-slider-runnable-track {
             width: 100%;
             height: 4px;
             background: #555;
             border-radius: 2px;
         }
-        /* 滑块圆钮 */
         input[type=range]::-webkit-slider-thumb {
             height: 16px;
             width: 16px;
             border-radius: 50%;
             background: #fff;
-            margin-top: -6px; /* 居中 */
+            margin-top: -6px;
             -webkit-appearance: none;
             box-shadow: 0 0 5px rgba(0,0,0,0.5);
         }
 
-        /* 更多菜单弹出层 */
+        /* 更多菜单 */
         #menu-popup {
             bottom: 85px; 
             left: 50%; 
@@ -164,14 +156,13 @@
             opacity: 0;
             transition: opacity 0.2s ease, transform 0.2s ease;
         }
-        
         #menu-popup.show {
             visibility: visible;
             opacity: 1;
             transform: translateX(-50%) translateY(0);
         }
 
-        /* 空状态（未打开文件） */
+        /* 状态与按钮 */
         #empty-state {
             position: fixed;
             top: 50%; left: 50%;
@@ -182,7 +173,6 @@
             align-items: center;
             gap: 20px;
         }
-
         #btn-open-big {
             font-size: 1.2em;
             padding: 15px 40px;
@@ -192,13 +182,6 @@
             cursor: pointer;
             color: #eee;
         }
-        #btn-open-big:hover {
-            background: rgba(255, 255, 255, 0.2);
-            border-color: #fff;
-            color: #fff;
-        }
-
-        /* 按钮通用样式 */
         button, label.btn {
             background: transparent;
             border: 1px solid #555;
@@ -214,8 +197,6 @@
             justify-content: center;
             text-align: center;
         }
-
-        /* 底部图标按钮特殊样式 */
         #controls button {
             padding: 8px;
             border-radius: 50%;
@@ -223,39 +204,26 @@
             height: 40px;
             border: 1px solid transparent;
         }
-        
         #controls button:hover {
             background: rgba(255,255,255,0.15);
             border-color: #777;
             color: #fff;
         }
-
         #controls button svg {
-            width: 24px;
-            height: 24px;
-            fill: currentColor;
+            width: 24px; height: 24px; fill: currentColor;
         }
-
-        /* 菜单内的按钮保持长条形 */
         #menu-popup button, #menu-popup label.btn {
-            width: 100%;
-            box-sizing: border-box;
-            border: none;
-            border-radius: 8px;
-            justify-content: flex-start;
-            padding: 12px 16px;
+            width: 100%; border: none; border-radius: 8px;
+            justify-content: flex-start; padding: 12px 16px;
         }
         #menu-popup button:hover, #menu-popup label.btn:hover {
             background: rgba(255,255,255,0.1);
         }
-
-        /* 分隔线 */
         .divider { width: 1px; height: 24px; background: #555; margin: 0 4px; }
         .menu-divider { width: 100%; height: 1px; background: #444; margin: 4px 0; }
-
         input[type="file"] { display: none; }
 
-        /* --- 视口与画布 --- */
+        /* --- 核心渲染区域优化 --- */
         #viewer-viewport {
             width: 100vw; height: 100vh;
             overflow: hidden;
@@ -263,21 +231,29 @@
             cursor: grab;
         }
         #viewer-viewport.grabbing { cursor: grabbing; }
-
         #transform-layer {
             position: absolute; top: 0; left: 0;
             transform-origin: 0 0;
             will-change: transform;
         }
-
         #canvas-container {
             display: flex;
             align-items: center; justify-content: center;
             gap: 0;
         }
-        canvas { display: block; }
+        
+        /* 
+           Canvas 优化：
+           1. image-rendering: 确保缩放时使用高质量插值
+           2. filter: 增加轻微对比度和饱和度，去除扫描件的"灰蒙蒙"感
+        */
+        canvas { 
+            display: block; 
+            image-rendering: -webkit-optimize-contrast; /* Webkit 专用清晰度优化 */
+            image-rendering: high-quality;
+            filter: contrast(1.08) brightness(1.02); /* 视觉增强：增加对比度 */
+        }
 
-        /* --- 辅助元素 --- */
         #loader {
             position: fixed; top: 50%; left: 50%;
             transform: translate(-50%, -50%);
@@ -287,7 +263,6 @@
             border-radius: 8px;
             display: none;
         }
-        
         #toast {
             position: fixed; top: 60px; left: 50%;
             transform: translateX(-50%);
@@ -308,7 +283,7 @@
 <body>
 
     <div id="top-bar" class="ui-bar">
-        <span style="font-weight: bold;">YoungMan</span>
+        <span style="font-weight: bold;">YoungMan2</span>
         <span id="file-name" style="font-size: 0.9em; color: #aaa;">未加载文件</span>
     </div>
 
@@ -326,13 +301,11 @@
         </div>
     </div>
 
-    <!-- 进度条滑块浮层 -->
     <div id="slider-popup">
         <span id="slider-preview">第 1 页</span>
         <input type="range" id="page-slider" min="1" max="1" value="1">
     </div>
 
-    <!-- 更多设置菜单 -->
     <div id="menu-popup" class="ui-bar">
         <label class="btn" for="file-input">📂 打开新文件</label>
         <div class="menu-divider"></div>
@@ -341,21 +314,13 @@
         <button id="btn-offset">📄 独立封面:开</button>
     </div>
 
-    <!-- 底部控制栏 -->
     <div id="controls" class="ui-bar">
         <input type="file" id="file-input" accept=".pdf">
-        
-        <!-- 页码信息，添加点击提示 -->
         <span id="page-info" title="点击调整进度">0 / 0</span>
-
         <div class="divider"></div>
-
-        <!-- 适应屏幕 -->
         <button id="btn-fit" title="适应屏幕">
             <svg viewBox="0 0 24 24"><path d="M4 4h4v2H6v2H4V4zm14 0h-4v2h2v2h2V4zM4 20h4v-2H6v-2H4v4zm14 0h-4v-2h2v-2h2v4z"/></svg>
         </button>
-        
-        <!-- 更多 -->
         <button id="btn-menu" title="更多选项">
             <svg viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
         </button>
@@ -382,7 +347,6 @@
                 this.dragStart = { x: 0, y: 0 };
                 this.lastTransform = { x: 0, y: 0 };
 
-                // 触控相关变量
                 this.isPinching = false;
                 this.touchStartDist = 0;
                 this.lastTouchDist = 0;
@@ -410,7 +374,6 @@
 
             initEvents() {
                 const stopPropagation = (e) => e.stopPropagation();
-                // 增加 slider-popup 到防冒泡列表
                 const uiElements = ['top-bar', 'controls', 'menu-popup', 'empty-state', 'slider-popup'];
                 
                 uiElements.forEach(id => {
@@ -420,22 +383,15 @@
                     el.addEventListener('mouseup', stopPropagation);
                     el.addEventListener('click', stopPropagation);
                     el.addEventListener('wheel', stopPropagation, { passive: false });
-                    // 添加 touchstart 阻止冒泡
                     el.addEventListener('touchstart', stopPropagation, { passive: false });
                 });
 
                 const fileInput = document.getElementById('file-input');
                 fileInput.addEventListener('change', (e) => this.loadPDF(e));
 
-                document.getElementById('btn-open-big').addEventListener('click', () => {
-                    fileInput.click();
-                });
-
-                document.getElementById('btn-fit').addEventListener('click', (e) => {
-                    this.fitToScreen();
-                });
+                document.getElementById('btn-open-big').addEventListener('click', () => fileInput.click());
+                document.getElementById('btn-fit').addEventListener('click', () => this.fitToScreen());
                 
-                // 菜单逻辑
                 const btnMenu = document.getElementById('btn-menu');
                 const updateMenuPosition = () => {
                     const btnRect = btnMenu.getBoundingClientRect();
@@ -450,7 +406,6 @@
                     this.menuPopup.classList.toggle('show');
                 });
 
-                // --- 滑块逻辑 ---
                 this.pageInfo.addEventListener('click', (e) => {
                     e.stopPropagation();
                     if (!this.pdfDoc) return;
@@ -490,13 +445,11 @@
                     if(e.key === ' ') this.toggleUI(); 
                 });
 
-                // 鼠标/触控事件
                 this.viewport.addEventListener('wheel', (e) => this.handleWheel(e), { passive: false });
                 this.viewport.addEventListener('mousedown', (e) => this.handleMouseDown(e));
                 window.addEventListener('mousemove', (e) => this.handleMouseMove(e));
                 window.addEventListener('mouseup', (e) => this.handleMouseUp(e));
 
-                // 触摸手势事件 (Touch)
                 window.addEventListener('touchstart', (e) => this.handleTouchStart(e), { passive: false });
                 window.addEventListener('touchmove', (e) => this.handleTouchMove(e), { passive: false });
                 window.addEventListener('touchend', (e) => this.handleTouchEnd(e));
@@ -517,19 +470,15 @@
                 return target.closest('.ui-bar') || target.closest('#slider-popup') || target.closest('#menu-popup');
             }
 
-            // --- 触控手势逻辑 ---
             handleTouchStart(e) {
                 if (this.isUITarget(e.target)) return;
                 
                 this.lastTouchTime = Date.now(); 
 
-                // 双指逻辑
                 if (e.touches.length === 2) {
                     e.preventDefault();
                     this.isPinching = true;
                     this.blockSingleAction = true; 
-                    
-                    // 修复跳动：双指开始时，强制关闭拖拽
                     this.isDragging = false; 
 
                     this.isTwoFingerTapCandidate = true;
@@ -542,7 +491,6 @@
                     this.touchStartDist = dist; 
                     this.lastTouchDist = dist; 
                 } 
-                // 单指逻辑
                 else if (e.touches.length === 1) {
                     this.blockSingleAction = false;
                     const touch = e.touches[0];
@@ -556,7 +504,6 @@
             handleTouchMove(e) {
                 if (this.isUITarget(e.target)) return;
 
-                // 双指缩放逻辑
                 if (this.isPinching && e.touches.length === 2) {
                     e.preventDefault();
                     
@@ -588,7 +535,6 @@
                     return; 
                 }
 
-                // 单指拖拽 - 修复跳动：增加 !this.blockSingleAction 判断
                 if (e.touches.length === 1 && this.isDragging && !this.blockSingleAction) {
                     const touch = e.touches[0];
                     const dx = touch.clientX - this.dragStart.x;
@@ -605,7 +551,6 @@
             }
 
             handleTouchEnd(e) {
-                // 如果是双指松开
                 if (this.isPinching && e.touches.length < 2) {
                     if (this.isTwoFingerTapCandidate) {
                         const duration = Date.now() - this.twoFingerTapStartTime;
@@ -615,8 +560,6 @@
                         }
                     }
                     this.isPinching = false;
-                    
-                    // 修复跳动：双指松开后，严禁剩余手指继续拖拽
                     this.isDragging = false; 
 
                     if (e.touches.length === 0) {
@@ -625,7 +568,6 @@
                     return;
                 }
                 
-                // 如果是单指松开
                 if (this.isDragging && e.touches.length === 0) {
                     this.isDragging = false;
                     
@@ -643,9 +585,7 @@
                     }
                 }
             }
-            // --- 触控手势逻辑结束 ---
 
-            // 统一的区域点击判定
             handleZoneAction(clientX) {
                 const width = window.innerWidth;
                 const third = width / 3;
@@ -661,7 +601,6 @@
 
             handleMouseDown(e) {
                 if (e.button !== 0) return;
-                // 防止触摸后又触发鼠标事件
                 if (Date.now() - this.lastTouchTime < 500) return; 
                 if (this.isUITarget(e.target)) return; 
 
@@ -684,8 +623,6 @@
                      this.handleZoneAction(e.clientX);
                 }
             }
-
-            // ... (其余方法保持不变) ...
 
             toggleSetting(key) {
                 this.settings[key] = !this.settings[key];
@@ -754,16 +691,12 @@
                 const buffer = await file.arrayBuffer();
                 try {
                     this.pdfDoc = await pdfjsLib.getDocument(buffer).promise;
-                    
                     this.pageSlider.max = this.pdfDoc.numPages;
-
                     const savedPage = this.loadProgress(this.fileFingerprint);
                     this.pageNum = (savedPage <= this.pdfDoc.numPages) ? savedPage : 1;
 
                     if (this.pageNum > 1) this.showToast(`已恢复到第 ${this.pageNum} 页`);
-                    
                     this.emptyState.style.display = 'none';
-                    
                     this.render();
                 } catch (err) {
                     console.error(err);
@@ -805,7 +738,9 @@
                 this.container.innerHTML = '';
                 this.container.style.flexDirection = this.settings.isRTL ? 'row-reverse' : 'row';
 
-                const renderHeight = window.innerHeight * window.devicePixelRatio * 1.5;
+                // --- 渲染清晰度优化 ---
+                // 使用更高的倍率 (3.0) 并在 CSS 中缩小显示，以获得高DPI下的锐利效果
+                const renderHeight = window.innerHeight * window.devicePixelRatio * 3.0;
                 let totalWidth = 0;
                 let maxHeight = 0;
 
