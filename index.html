@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>YoungMan - DoubleTap</title>
+    <title>YoungMan - FullFit</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -579,7 +579,6 @@
                         const touch = e.changedTouches[0];
                         if (!this.isUITarget(touch.target)) {
                             if (e.cancelable) e.preventDefault(); 
-                            // 传入坐标进行防抖判定
                             this.handleClickWithDebounce(touch.clientX);
                         }
                     }
@@ -593,7 +592,7 @@
                 if (now - this.lastTapTime < 250) {
                     clearTimeout(this.clickTimer);
                     this.fitToScreen();
-                    this.lastTapTime = 0; // 重置防止触发三连击
+                    this.lastTapTime = 0; 
                 } else {
                     // 第一次点击 -> 延迟执行单击逻辑
                     this.lastTapTime = now;
@@ -638,7 +637,6 @@
                 if (this.isUITarget(e.target)) return;
 
                 if (!this.hasDragged) {
-                     // 鼠标也使用防抖逻辑，支持PC双击复位
                      this.handleClickWithDebounce(e.clientX);
                 }
             }
@@ -785,7 +783,8 @@
                 if (!this.initialContentSize) return;
                 const vpW = window.innerWidth;
                 const vpH = window.innerHeight;
-                const scale = Math.min(vpW / this.initialContentSize.w, vpH / this.initialContentSize.h) * 0.95;
+                // 去除0.95系数，撑满屏幕
+                const scale = Math.min(vpW / this.initialContentSize.w, vpH / this.initialContentSize.h);
                 const x = (vpW - this.initialContentSize.w * scale) / 2;
                 const y = (vpH - this.initialContentSize.h * scale) / 2;
                 this.setTransform(x, y, scale);
