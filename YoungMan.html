@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -16,8 +17,12 @@
             --accent-color: #fff;
         }
 
-        body, html {
-            margin: 0; padding: 0; height: 100%; width: 100%;
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
             background-color: var(--bg-color);
             color: var(--text-color);
             font-family: system-ui, -apple-system, sans-serif;
@@ -33,29 +38,43 @@
             z-index: 500;
             transition: opacity 0.3s ease, transform 0.3s ease;
             opacity: 1;
-            pointer-events: auto; 
+            pointer-events: auto;
         }
-        
-        body.ui-hidden .ui-bar, 
+
+        body.ui-hidden .ui-bar,
         body.ui-hidden #menu-popup,
-        body.ui-hidden #slider-popup { 
+        body.ui-hidden #slider-popup {
             opacity: 0;
-            pointer-events: none; 
+            pointer-events: none;
         }
-        body.ui-hidden #top-bar { transform: translateY(-100%); }
-        body.ui-hidden #controls { transform: translateX(-50%) translateY(100%); }
-        body.ui-hidden #menu-popup { transform: translateX(-50%) translateY(20px); }
-        body.ui-hidden #slider-popup { transform: translateX(-50%) translateY(20px); }
+
+        body.ui-hidden #top-bar {
+            transform: translateY(-100%);
+        }
+
+        body.ui-hidden #controls {
+            transform: translateX(-50%) translateY(100%);
+        }
+
+        body.ui-hidden #menu-popup {
+            transform: translateX(-50%) translateY(20px);
+        }
+
+        body.ui-hidden #slider-popup {
+            transform: translateX(-50%) translateY(20px);
+        }
 
         /* 顶部栏 */
         #top-bar {
-            top: 0; left: 0; right: 0;
+            top: 0;
+            left: 0;
+            right: 0;
             height: 48px;
             display: flex;
             align-items: center;
             justify-content: space-between;
             padding: 0 24px;
-            box-shadow: 0 1px 10px rgba(0,0,0,0.3);
+            box-shadow: 0 1px 10px rgba(0, 0, 0, 0.3);
         }
 
         /* 底部栏 */
@@ -68,8 +87,8 @@
             display: flex;
             gap: 8px;
             align-items: center;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.6);
-            white-space: nowrap; 
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+            white-space: nowrap;
         }
 
         /* 页码点击区域 */
@@ -83,14 +102,15 @@
             border-radius: 10px;
             transition: background 0.2s;
         }
+
         #page-info:hover {
-            background: rgba(255,255,255,0.1);
+            background: rgba(255, 255, 255, 0.1);
         }
 
         /* 进度条弹窗 */
         #slider-popup {
             position: fixed;
-            bottom: 85px; 
+            bottom: 85px;
             left: 50%;
             transform: translateX(-50%);
             width: 280px;
@@ -101,35 +121,44 @@
             flex-direction: column;
             gap: 8px;
             align-items: center;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
             z-index: 500;
             visibility: hidden;
             opacity: 0;
             transition: opacity 0.2s ease, transform 0.2s ease;
         }
+
         #slider-popup.show {
             visibility: visible;
             opacity: 1;
             transform: translateX(-50%) translateY(0);
         }
+
         #slider-preview {
             font-size: 14px;
             color: #ddd;
             font-variant-numeric: tabular-nums;
         }
+
         input[type=range] {
             -webkit-appearance: none;
+            appearance: none;
             width: 100%;
             background: transparent;
             cursor: pointer;
         }
-        input[type=range]:focus { outline: none; }
+
+        input[type=range]:focus {
+            outline: none;
+        }
+
         input[type=range]::-webkit-slider-runnable-track {
             width: 100%;
             height: 4px;
             background: #555;
             border-radius: 2px;
         }
+
         input[type=range]::-webkit-slider-thumb {
             height: 16px;
             width: 16px;
@@ -137,25 +166,26 @@
             background: #fff;
             margin-top: -6px;
             -webkit-appearance: none;
-            box-shadow: 0 0 5px rgba(0,0,0,0.5);
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
         }
 
         /* 更多菜单 */
         #menu-popup {
-            bottom: 85px; 
-            left: 50%; 
-            transform: translateX(-50%) translateY(10px); 
+            bottom: 85px;
+            left: 50%;
+            transform: translateX(-50%) translateY(10px);
             padding: 16px;
             border-radius: 16px;
             display: flex;
             flex-direction: column;
             gap: 10px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.6);
-            min-width: 180px; 
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+            min-width: 180px;
             visibility: hidden;
             opacity: 0;
             transition: opacity 0.2s ease, transform 0.2s ease;
         }
+
         #menu-popup.show {
             visibility: visible;
             opacity: 1;
@@ -165,7 +195,8 @@
         /* 状态与按钮 */
         #empty-state {
             position: fixed;
-            top: 50%; left: 50%;
+            top: 50%;
+            left: 50%;
             transform: translate(-50%, -50%);
             z-index: 100;
             display: flex;
@@ -173,6 +204,7 @@
             align-items: center;
             gap: 20px;
         }
+
         #btn-open-big {
             font-size: 1.2em;
             padding: 15px 40px;
@@ -182,7 +214,9 @@
             cursor: pointer;
             color: #eee;
         }
-        button, label.btn {
+
+        button,
+        label.btn {
             background: transparent;
             border: 1px solid #555;
             color: #ddd;
@@ -197,6 +231,7 @@
             justify-content: center;
             text-align: center;
         }
+
         #controls button {
             padding: 8px;
             border-radius: 50%;
@@ -204,62 +239,102 @@
             height: 40px;
             border: 1px solid transparent;
         }
+
         #controls button:hover {
-            background: rgba(255,255,255,0.15);
+            background: rgba(255, 255, 255, 0.15);
             border-color: #777;
             color: #fff;
         }
+
         #controls button svg {
-            width: 24px; height: 24px; fill: currentColor;
+            width: 24px;
+            height: 24px;
+            fill: currentColor;
         }
-        #menu-popup button, #menu-popup label.btn {
-            width: 100%; border: none; border-radius: 8px;
-            justify-content: flex-start; padding: 12px 16px;
+
+        #menu-popup button,
+        #menu-popup label.btn {
+            width: 100%;
+            border: none;
+            border-radius: 8px;
+            justify-content: flex-start;
+            padding: 12px 16px;
         }
-        #menu-popup button:hover, #menu-popup label.btn:hover {
-            background: rgba(255,255,255,0.1);
+
+        #menu-popup button:hover,
+        #menu-popup label.btn:hover {
+            background: rgba(255, 255, 255, 0.1);
         }
-        .divider { width: 1px; height: 24px; background: #555; margin: 0 4px; }
-        .menu-divider { width: 100%; height: 1px; background: #444; margin: 4px 0; }
-        input[type="file"] { display: none; }
+
+        .divider {
+            width: 1px;
+            height: 24px;
+            background: #555;
+            margin: 0 4px;
+        }
+
+        .menu-divider {
+            width: 100%;
+            height: 1px;
+            background: #444;
+            margin: 4px 0;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
 
         /* --- 核心渲染区域 --- */
         #viewer-viewport {
-            width: 100vw; height: 100vh;
+            width: 100vw;
+            height: 100vh;
             overflow: hidden;
             position: relative;
             cursor: grab;
         }
-        #viewer-viewport.grabbing { cursor: grabbing; }
+
+        #viewer-viewport.grabbing {
+            cursor: grabbing;
+        }
+
         #transform-layer {
-            position: absolute; top: 0; left: 0;
+            position: absolute;
+            top: 0;
+            left: 0;
             transform-origin: 0 0;
             will-change: transform;
         }
+
         #canvas-container {
             display: flex;
-            align-items: center; justify-content: center;
+            align-items: center;
+            justify-content: center;
             gap: 0;
         }
-        
-        canvas { 
-            display: block; 
+
+        canvas {
+            display: block;
             image-rendering: -webkit-optimize-contrast;
             image-rendering: high-quality;
             filter: contrast(1.08) brightness(1.02);
         }
 
         #loader {
-            position: fixed; top: 50%; left: 50%;
+            position: fixed;
+            top: 50%;
+            left: 50%;
             transform: translate(-50%, -50%);
             z-index: 600;
-            background: rgba(0,0,0,0.8);
+            background: rgba(0, 0, 0, 0.8);
             padding: 15px 30px;
             border-radius: 8px;
             display: none;
         }
+
         #toast {
-            position: fixed; top: 60px; left: 50%;
+            position: fixed;
+            top: 60px;
+            left: 50%;
             transform: translateX(-50%);
             background: rgba(40, 40, 40, 0.95);
             border: 1px solid #555;
@@ -271,10 +346,11 @@
             opacity: 0;
             transition: opacity 0.5s;
             pointer-events: none;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
         }
     </style>
 </head>
+
 <body>
 
     <div id="top-bar" class="ui-bar">
@@ -314,10 +390,15 @@
         <span id="page-info" title="点击调整进度">0 / 0</span>
         <div class="divider"></div>
         <button id="btn-fit" title="适应屏幕">
-            <svg viewBox="0 0 24 24"><path d="M4 4h4v2H6v2H4V4zm14 0h-4v2h2v2h2V4zM4 20h4v-2H6v-2H4v4zm14 0h-4v-2h2v-2h2v4z"/></svg>
+            <svg viewBox="0 0 24 24">
+                <path d="M4 4h4v2H6v2H4V4zm14 0h-4v2h2v2h2V4zM4 20h4v-2H6v-2H4v4zm14 0h-4v-2h2v-2h2v4z" />
+            </svg>
         </button>
         <button id="btn-menu" title="更多选项">
-            <svg viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
+            <svg viewBox="0 0 24 24">
+                <path
+                    d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
+            </svg>
         </button>
     </div>
 
@@ -333,7 +414,7 @@
                 this.settings = {
                     isDouble: true,
                     isRTL: true,
-                    hasCover: true, 
+                    hasCover: true,
                 };
 
                 this.transform = { scale: 1, x: 0, y: 0 };
@@ -348,8 +429,8 @@
                 this.lastTouchDist = 0;
                 this.isTwoFingerTapCandidate = false;
                 this.twoFingerTapStartTime = 0;
-                this.blockSingleAction = false; 
-                this.lastTouchTime = 0; 
+                this.blockSingleAction = false;
+                this.lastTouchTime = 0;
 
                 // 双击判定计时器
                 this.clickTimer = null;
@@ -363,7 +444,7 @@
                 this.toast = document.getElementById('toast');
                 this.emptyState = document.getElementById('empty-state');
                 this.menuPopup = document.getElementById('menu-popup');
-                
+
                 this.sliderPopup = document.getElementById('slider-popup');
                 this.pageSlider = document.getElementById('page-slider');
                 this.sliderPreview = document.getElementById('slider-preview');
@@ -375,10 +456,10 @@
             initEvents() {
                 const stopPropagation = (e) => e.stopPropagation();
                 const uiElements = ['top-bar', 'controls', 'menu-popup', 'empty-state', 'slider-popup'];
-                
+
                 uiElements.forEach(id => {
                     const el = document.getElementById(id);
-                    if(!el) return;
+                    if (!el) return;
                     el.addEventListener('mousedown', stopPropagation);
                     el.addEventListener('mouseup', stopPropagation);
                     el.addEventListener('click', stopPropagation);
@@ -391,7 +472,7 @@
 
                 document.getElementById('btn-open-big').addEventListener('click', () => fileInput.click());
                 document.getElementById('btn-fit').addEventListener('click', () => this.fitToScreen());
-                
+
                 const btnMenu = document.getElementById('btn-menu');
                 const updateMenuPosition = () => {
                     const btnRect = btnMenu.getBoundingClientRect();
@@ -423,7 +504,7 @@
                 });
 
                 window.addEventListener('resize', () => {
-                    if(this.menuPopup.classList.contains('show')) updateMenuPosition();
+                    if (this.menuPopup.classList.contains('show')) updateMenuPosition();
                 });
 
                 window.addEventListener('click', (e) => {
@@ -440,9 +521,9 @@
                 document.getElementById('btn-offset').addEventListener('click', () => this.toggleSetting('hasCover'));
 
                 document.addEventListener('keydown', (e) => {
-                    if(e.key === 'ArrowLeft') this.handleDirectionKey('left');
-                    if(e.key === 'ArrowRight') this.handleDirectionKey('right');
-                    if(e.key === ' ') this.toggleUI(); 
+                    if (e.key === 'ArrowLeft') this.handleDirectionKey('left');
+                    if (e.key === 'ArrowRight') this.handleDirectionKey('right');
+                    if (e.key === ' ') this.toggleUI();
                 });
 
                 this.viewport.addEventListener('wheel', (e) => this.handleWheel(e), { passive: false });
@@ -457,9 +538,9 @@
                 window.addEventListener('dragover', (e) => e.preventDefault());
                 window.addEventListener('drop', (e) => {
                     e.preventDefault();
-                    if(e.dataTransfer.files.length > 0) {
+                    if (e.dataTransfer.files.length > 0) {
                         const file = e.dataTransfer.files[0];
-                        if(file.type === 'application/pdf') {
+                        if (file.type === 'application/pdf') {
                             this.loadPDFFile(file);
                         }
                     }
@@ -472,25 +553,25 @@
 
             handleTouchStart(e) {
                 if (this.isUITarget(e.target)) return;
-                
-                this.lastTouchTime = Date.now(); 
+
+                this.lastTouchTime = Date.now();
 
                 if (e.touches.length === 2) {
                     e.preventDefault();
                     this.isPinching = true;
-                    this.blockSingleAction = true; 
-                    this.isDragging = false; 
+                    this.blockSingleAction = true;
+                    this.isDragging = false;
 
                     this.isTwoFingerTapCandidate = true;
                     this.twoFingerTapStartTime = Date.now();
-                    
+
                     const p1 = e.touches[0];
                     const p2 = e.touches[1];
                     const dist = Math.hypot(p1.clientX - p2.clientX, p1.clientY - p2.clientY);
-                    
-                    this.touchStartDist = dist; 
-                    this.lastTouchDist = dist; 
-                } 
+
+                    this.touchStartDist = dist;
+                    this.lastTouchDist = dist;
+                }
                 else if (e.touches.length === 1) {
                     this.blockSingleAction = false;
                     const touch = e.touches[0];
@@ -506,7 +587,7 @@
 
                 if (this.isPinching && e.touches.length === 2) {
                     e.preventDefault();
-                    
+
                     const p1 = e.touches[0];
                     const p2 = e.touches[1];
                     const currentDist = Math.hypot(p1.clientX - p2.clientX, p1.clientY - p2.clientY);
@@ -525,27 +606,27 @@
                         const centerX = (p1.clientX + p2.clientX) / 2;
                         const centerY = (p1.clientY + p2.clientY) / 2;
                         const oldScale = this.transform.scale;
-                        
+
                         const newX = centerX - (centerX - this.transform.x) * (newScale / oldScale);
                         const newY = centerY - (centerY - this.transform.y) * (newScale / oldScale);
 
                         this.setTransform(newX, newY, newScale);
                         this.lastTouchDist = currentDist;
                     }
-                    return; 
+                    return;
                 }
 
                 if (e.touches.length === 1 && this.isDragging && !this.blockSingleAction) {
                     const touch = e.touches[0];
                     const dx = touch.clientX - this.dragStart.x;
                     const dy = touch.clientY - this.dragStart.y;
-                    
+
                     if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
-                         this.hasDragged = true;
-                         e.preventDefault();
-                         const newX = this.lastTransform.x + dx;
-                         const newY = this.lastTransform.y + dy;
-                         this.setTransform(newX, newY, this.transform.scale);
+                        this.hasDragged = true;
+                        e.preventDefault();
+                        const newX = this.lastTransform.x + dx;
+                        const newY = this.lastTransform.y + dy;
+                        this.setTransform(newX, newY, this.transform.scale);
                     }
                 }
             }
@@ -554,22 +635,22 @@
                 if (this.isPinching && e.touches.length < 2) {
                     if (this.isTwoFingerTapCandidate) {
                         const duration = Date.now() - this.twoFingerTapStartTime;
-                        if (duration < 300) { 
+                        if (duration < 300) {
                             this.toggleSetting('isDouble');
                             this.showToast(this.settings.isDouble ? "已切换: 双页模式" : "已切换: 单页模式");
                         }
                     }
                     this.isPinching = false;
-                    this.isDragging = false; 
+                    this.isDragging = false;
                     if (e.touches.length === 0) {
                         setTimeout(() => { this.blockSingleAction = false; }, 50);
                     }
                     return;
                 }
-                
+
                 if (this.isDragging && e.touches.length === 0) {
                     this.isDragging = false;
-                    
+
                     if (this.blockSingleAction) {
                         this.blockSingleAction = false;
                         return;
@@ -578,7 +659,7 @@
                     if (!this.hasDragged) {
                         const touch = e.changedTouches[0];
                         if (!this.isUITarget(touch.target)) {
-                            if (e.cancelable) e.preventDefault(); 
+                            if (e.cancelable) e.preventDefault();
                             this.handleClickWithDebounce(touch.clientX);
                         }
                     }
@@ -592,7 +673,7 @@
                 if (now - this.lastTapTime < 250) {
                     clearTimeout(this.clickTimer);
                     this.fitToScreen();
-                    this.lastTapTime = 0; 
+                    this.lastTapTime = 0;
                 } else {
                     // 第一次点击 -> 延迟执行单击逻辑
                     this.lastTapTime = now;
@@ -618,26 +699,26 @@
 
             handleMouseDown(e) {
                 if (e.button !== 0) return;
-                if (Date.now() - this.lastTouchTime < 500) return; 
-                if (this.isUITarget(e.target)) return; 
+                if (Date.now() - this.lastTouchTime < 500) return;
+                if (this.isUITarget(e.target)) return;
 
                 this.isDragging = true;
-                this.hasDragged = false; 
+                this.hasDragged = false;
                 this.dragStart = { x: e.clientX, y: e.clientY };
                 this.lastTransform = { ...this.transform };
                 this.viewport.classList.add('grabbing');
             }
 
             handleMouseUp(e) {
-                if (Date.now() - this.lastTouchTime < 500) return; 
+                if (Date.now() - this.lastTouchTime < 500) return;
 
                 this.isDragging = false;
                 this.viewport.classList.remove('grabbing');
-                
+
                 if (this.isUITarget(e.target)) return;
 
                 if (!this.hasDragged) {
-                     this.handleClickWithDebounce(e.clientX);
+                    this.handleClickWithDebounce(e.clientX);
                 }
             }
 
@@ -697,12 +778,12 @@
 
             async loadPDFFile(file) {
                 if (file.type !== 'application/pdf') return;
-                
+
                 document.getElementById('file-name').textContent = file.name;
                 this.loader.style.display = 'block';
                 this.menuPopup.classList.remove('show');
                 this.sliderPopup.classList.remove('show');
-                
+
                 this.fileFingerprint = this.getFileFingerprint(file);
 
                 const buffer = await file.arrayBuffer();
@@ -741,7 +822,7 @@
                         let start = this.pageNum;
                         const isStartEven = (start % 2 === 0);
                         if (this.settings.hasCover) {
-                            if (!isStartEven) start--; 
+                            if (!isStartEven) start--;
                             if (start < 2) start = 2;
                         } else {
                             if (isStartEven) start--;
@@ -806,7 +887,7 @@
                 const mouseX = e.clientX;
                 const mouseY = e.clientY;
                 const oldScale = this.transform.scale;
-                
+
                 const newX = mouseX - (mouseX - this.transform.x) * (newScale / oldScale);
                 const newY = mouseY - (mouseY - this.transform.y) * (newScale / oldScale);
 
@@ -874,4 +955,5 @@
         const reader = new ComicReader();
     </script>
 </body>
+
 </html>
