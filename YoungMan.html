@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>YoungMan - FullFit</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    </script>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --control-bg: rgba(30, 30, 30, 0.95);
+            --text-color: #eee;
+            --accent-color: #fff;
+        }
+
+        body, html {
+            margin: 0; padding: 0; height: 100%; width: 100%;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: system-ui, -apple-system, sans-serif;
+            overflow: hidden;
+            user-select: none;
+            touch-action: none;
+        }
+
+        /* --- UI Bar --- */
+        .ui-bar {
+            position: fixed;
+            background: var(--control-bg);
+            z-index: 500;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            opacity: 1;
+            pointer-events: auto; 
+        }
+        
+        body.ui-hidden .ui-bar, 
+        body.ui-hidden #menu-popup,
+        body.ui-hidden #slider-popup { 
+            opacity: 0;
+            pointer-events: none; 
+        }
+        body.ui-hidden #top-bar { transform: translateY(-100%); }
+        body.ui-hidden #controls { transform: translateX(-50%) translateY(100%); }
+        body.ui-hidden #menu-popup { transform: translateX(-50%) translateY(20px); }
+        body.ui-hidden #slider-popup { transform: translateX(-50%) translateY(20px); }
+
+        /* 顶部栏 */
+        #top-bar {
+            top: 0; left: 0; right: 0;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            box-shadow: 0 1px 10px rgba(0,0,0,0.3);
+        }
+
+        /* 底部栏 */
+        #controls {
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 8px 16px;
+            border-radius: 50px;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+            white-space: nowrap; 
+        }
+
+        /* 页码点击区域 */
+        #page-info {
+            min-width: 60px;
+            text-align: center;
+            font-variant-numeric: tabular-nums;
+            padding: 5px 10px;
+            font-size: 14px;
+            cursor: pointer;
+            border-radius: 10px;
+            transition: background 0.2s;
+        }
+        #page-info:hover {
+            background: rgba(255,255,255,0.1);
+        }
+
+        /* 进度条弹窗 */
+        #slider-popup {
+            position: fixed;
+            bottom: 85px; 
+            left: 50%;
+            transform: translateX(-50%);
+            width: 280px;
+            background: var(--control-bg);
+            padding: 15px 20px;
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            align-items: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+            z-index: 500;
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+        #slider-popup.show {
+            visibility: visible;
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+        #slider-preview {
+            font-size: 14px;
+            color: #ddd;
+            font-variant-numeric: tabular-nums;
+        }
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+            cursor: pointer;
+        }
+        input[type=range]:focus { outline: none; }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            background: #555;
+            border-radius: 2px;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #fff;
+            margin-top: -6px;
+            -webkit-appearance: none;
+            box-shadow: 0 0 5px rgba(0,0,0,0.5);
+        }
+
+        /* 更多菜单 */
+        #menu-popup {
+            bottom: 85px; 
+            left: 50%; 
+            transform: translateX(-50%) translateY(10px); 
+            padding: 16px;
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+            min-width: 180px; 
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+        #menu-popup.show {
+            visibility: visible;
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* 状态与按钮 */
+        #empty-state {
+            position: fixed;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+        #btn-open-big {
+            font-size: 1.2em;
+            padding: 15px 40px;
+            border-radius: 30px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid #777;
+            cursor: pointer;
+            color: #eee;
+        }
+        button, label.btn {
+            background: transparent;
+            border: 1px solid #555;
+            color: #ddd;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+            white-space: nowrap;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+        #controls button {
+            padding: 8px;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            border: 1px solid transparent;
+        }
+        #controls button:hover {
+            background: rgba(255,255,255,0.15);
+            border-color: #777;
+            color: #fff;
+        }
+        #controls button svg {
+            width: 24px; height: 24px; fill: currentColor;
+        }
+        #menu-popup button, #menu-popup label.btn {
+            width: 100%; border: none; border-radius: 8px;
+            justify-content: flex-start; padding: 12px 16px;
+        }
+        #menu-popup button:hover, #menu-popup label.btn:hover {
+            background: rgba(255,255,255,0.1);
+        }
+        .divider { width: 1px; height: 24px; background: #555; margin: 0 4px; }
+        .menu-divider { width: 100%; height: 1px; background: #444; margin: 4px 0; }
+        input[type="file"] { display: none; }
+
+        /* --- 核心渲染区域 --- */
+        #viewer-viewport {
+            width: 100vw; height: 100vh;
+            overflow: hidden;
+            position: relative;
+            cursor: grab;
+        }
+        #viewer-viewport.grabbing { cursor: grabbing; }
+        #transform-layer {
+            position: absolute; top: 0; left: 0;
+            transform-origin: 0 0;
+            will-change: transform;
+        }
+        #canvas-container {
+            display: flex;
+            align-items: center; justify-content: center;
+            gap: 0;
+        }
+        
+        canvas { 
+            display: block; 
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: high-quality;
+            filter: contrast(1.08) brightness(1.02);
+        }
+
+        #loader {
+            position: fixed; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 600;
+            background: rgba(0,0,0,0.8);
+            padding: 15px 30px;
+            border-radius: 8px;
+            display: none;
+        }
+        #toast {
+            position: fixed; top: 60px; left: 50%;
+            transform: translateX(-50%);
+            background: rgba(40, 40, 40, 0.95);
+            border: 1px solid #555;
+            color: #fff;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 14px;
+            z-index: 600;
+            opacity: 0;
+            transition: opacity 0.5s;
+            pointer-events: none;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="top-bar" class="ui-bar">
+        <span style="font-weight: bold;">YoungMan</span>
+        <span id="file-name" style="font-size: 0.9em; color: #aaa;">未加载文件</span>
+    </div>
+
+    <div id="empty-state">
+        <div style="color: #888; margin-bottom: 10px; font-size: 0.9em;">拖入文件或点击按钮</div>
+        <button id="btn-open-big">打开 PDF</button>
+    </div>
+
+    <div id="loader">加载中...</div>
+    <div id="toast">已恢复上次阅读进度</div>
+
+    <div id="viewer-viewport">
+        <div id="transform-layer">
+            <div id="canvas-container"></div>
+        </div>
+    </div>
+
+    <div id="slider-popup">
+        <span id="slider-preview">第 1 页</span>
+        <input type="range" id="page-slider" min="1" max="1" value="1">
+    </div>
+
+    <div id="menu-popup" class="ui-bar">
+        <label class="btn" for="file-input">📂 打开新文件</label>
+        <div class="menu-divider"></div>
+        <button id="btn-mode">📖 双页模式</button>
+        <button id="btn-dir">⬅️ 日漫(右→左)</button>
+        <button id="btn-offset">📄 独立封面:开</button>
+    </div>
+
+    <div id="controls" class="ui-bar">
+        <input type="file" id="file-input" accept=".pdf">
+        <span id="page-info" title="点击调整进度">0 / 0</span>
+        <div class="divider"></div>
+        <button id="btn-fit" title="适应屏幕">
+            <svg viewBox="0 0 24 24"><path d="M4 4h4v2H6v2H4V4zm14 0h-4v2h2v2h2V4zM4 20h4v-2H6v-2H4v4zm14 0h-4v-2h2v-2h2v4z"/></svg>
+        </button>
+        <button id="btn-menu" title="更多选项">
+            <svg viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
+        </button>
+    </div>
+
+    <script>
+        class ComicReader {
+            constructor() {
+                this.pdfDoc = null;
+                this.pageNum = 1;
+                this.renderLock = false;
+                this.uiVisible = true;
+                this.fileFingerprint = null;
+
+                this.settings = {
+                    isDouble: true,
+                    isRTL: true,
+                    hasCover: true, 
+                };
+
+                this.transform = { scale: 1, x: 0, y: 0 };
+                this.isDragging = false;
+                this.hasDragged = false;
+                this.dragStart = { x: 0, y: 0 };
+                this.lastTransform = { x: 0, y: 0 };
+
+                // 触控与双击相关变量
+                this.isPinching = false;
+                this.touchStartDist = 0;
+                this.lastTouchDist = 0;
+                this.isTwoFingerTapCandidate = false;
+                this.twoFingerTapStartTime = 0;
+                this.blockSingleAction = false; 
+                this.lastTouchTime = 0; 
+
+                // 双击判定计时器
+                this.clickTimer = null;
+                this.lastTapTime = 0;
+
+                this.viewport = document.getElementById('viewer-viewport');
+                this.container = document.getElementById('canvas-container');
+                this.transformLayer = document.getElementById('transform-layer');
+                this.pageInfo = document.getElementById('page-info');
+                this.loader = document.getElementById('loader');
+                this.toast = document.getElementById('toast');
+                this.emptyState = document.getElementById('empty-state');
+                this.menuPopup = document.getElementById('menu-popup');
+                
+                this.sliderPopup = document.getElementById('slider-popup');
+                this.pageSlider = document.getElementById('page-slider');
+                this.sliderPreview = document.getElementById('slider-preview');
+
+                this.initEvents();
+                this.updateUI();
+            }
+
+            initEvents() {
+                const stopPropagation = (e) => e.stopPropagation();
+                const uiElements = ['top-bar', 'controls', 'menu-popup', 'empty-state', 'slider-popup'];
+                
+                uiElements.forEach(id => {
+                    const el = document.getElementById(id);
+                    if(!el) return;
+                    el.addEventListener('mousedown', stopPropagation);
+                    el.addEventListener('mouseup', stopPropagation);
+                    el.addEventListener('click', stopPropagation);
+                    el.addEventListener('wheel', stopPropagation, { passive: false });
+                    el.addEventListener('touchstart', stopPropagation, { passive: false });
+                });
+
+                const fileInput = document.getElementById('file-input');
+                fileInput.addEventListener('change', (e) => this.loadPDF(e));
+
+                document.getElementById('btn-open-big').addEventListener('click', () => fileInput.click());
+                document.getElementById('btn-fit').addEventListener('click', () => this.fitToScreen());
+                
+                const btnMenu = document.getElementById('btn-menu');
+                const updateMenuPosition = () => {
+                    const btnRect = btnMenu.getBoundingClientRect();
+                    const centerX = btnRect.left + (btnRect.width / 2);
+                    this.menuPopup.style.left = `${centerX}px`;
+                };
+
+                btnMenu.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.sliderPopup.classList.remove('show');
+                    updateMenuPosition();
+                    this.menuPopup.classList.toggle('show');
+                });
+
+                this.pageInfo.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (!this.pdfDoc) return;
+                    this.menuPopup.classList.remove('show');
+                    this.sliderPopup.classList.toggle('show');
+                });
+
+                this.pageSlider.addEventListener('input', (e) => {
+                    this.sliderPreview.textContent = `第 ${e.target.value} 页`;
+                });
+
+                this.pageSlider.addEventListener('change', (e) => {
+                    const targetPage = parseInt(e.target.value, 10);
+                    this.jumpToPage(targetPage);
+                });
+
+                window.addEventListener('resize', () => {
+                    if(this.menuPopup.classList.contains('show')) updateMenuPosition();
+                });
+
+                window.addEventListener('click', (e) => {
+                    if (this.menuPopup.classList.contains('show') && e.target !== btnMenu && !this.menuPopup.contains(e.target)) {
+                        this.menuPopup.classList.remove('show');
+                    }
+                    if (this.sliderPopup.classList.contains('show') && e.target !== this.pageInfo && !this.sliderPopup.contains(e.target)) {
+                        this.sliderPopup.classList.remove('show');
+                    }
+                });
+
+                document.getElementById('btn-mode').addEventListener('click', () => this.toggleSetting('isDouble'));
+                document.getElementById('btn-dir').addEventListener('click', () => this.toggleSetting('isRTL'));
+                document.getElementById('btn-offset').addEventListener('click', () => this.toggleSetting('hasCover'));
+
+                document.addEventListener('keydown', (e) => {
+                    if(e.key === 'ArrowLeft') this.handleDirectionKey('left');
+                    if(e.key === 'ArrowRight') this.handleDirectionKey('right');
+                    if(e.key === ' ') this.toggleUI(); 
+                });
+
+                this.viewport.addEventListener('wheel', (e) => this.handleWheel(e), { passive: false });
+                this.viewport.addEventListener('mousedown', (e) => this.handleMouseDown(e));
+                window.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+                window.addEventListener('mouseup', (e) => this.handleMouseUp(e));
+
+                window.addEventListener('touchstart', (e) => this.handleTouchStart(e), { passive: false });
+                window.addEventListener('touchmove', (e) => this.handleTouchMove(e), { passive: false });
+                window.addEventListener('touchend', (e) => this.handleTouchEnd(e));
+
+                window.addEventListener('dragover', (e) => e.preventDefault());
+                window.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    if(e.dataTransfer.files.length > 0) {
+                        const file = e.dataTransfer.files[0];
+                        if(file.type === 'application/pdf') {
+                            this.loadPDFFile(file);
+                        }
+                    }
+                });
+            }
+
+            isUITarget(target) {
+                return target.closest('.ui-bar') || target.closest('#slider-popup') || target.closest('#menu-popup');
+            }
+
+            handleTouchStart(e) {
+                if (this.isUITarget(e.target)) return;
+                
+                this.lastTouchTime = Date.now(); 
+
+                if (e.touches.length === 2) {
+                    e.preventDefault();
+                    this.isPinching = true;
+                    this.blockSingleAction = true; 
+                    this.isDragging = false; 
+
+                    this.isTwoFingerTapCandidate = true;
+                    this.twoFingerTapStartTime = Date.now();
+                    
+                    const p1 = e.touches[0];
+                    const p2 = e.touches[1];
+                    const dist = Math.hypot(p1.clientX - p2.clientX, p1.clientY - p2.clientY);
+                    
+                    this.touchStartDist = dist; 
+                    this.lastTouchDist = dist; 
+                } 
+                else if (e.touches.length === 1) {
+                    this.blockSingleAction = false;
+                    const touch = e.touches[0];
+                    this.isDragging = true;
+                    this.hasDragged = false;
+                    this.dragStart = { x: touch.clientX, y: touch.clientY };
+                    this.lastTransform = { ...this.transform };
+                }
+            }
+
+            handleTouchMove(e) {
+                if (this.isUITarget(e.target)) return;
+
+                if (this.isPinching && e.touches.length === 2) {
+                    e.preventDefault();
+                    
+                    const p1 = e.touches[0];
+                    const p2 = e.touches[1];
+                    const currentDist = Math.hypot(p1.clientX - p2.clientX, p1.clientY - p2.clientY);
+
+                    if (Math.abs(currentDist - this.touchStartDist) > 10) {
+                        this.isTwoFingerTapCandidate = false;
+                    }
+
+                    if (this.lastTouchDist > 0) {
+                        const zoomFactor = currentDist / this.lastTouchDist;
+                        let newScale = this.transform.scale * zoomFactor;
+
+                        if (newScale < 0.05) newScale = 0.05;
+                        if (newScale > 5) newScale = 5;
+
+                        const centerX = (p1.clientX + p2.clientX) / 2;
+                        const centerY = (p1.clientY + p2.clientY) / 2;
+                        const oldScale = this.transform.scale;
+                        
+                        const newX = centerX - (centerX - this.transform.x) * (newScale / oldScale);
+                        const newY = centerY - (centerY - this.transform.y) * (newScale / oldScale);
+
+                        this.setTransform(newX, newY, newScale);
+                        this.lastTouchDist = currentDist;
+                    }
+                    return; 
+                }
+
+                if (e.touches.length === 1 && this.isDragging && !this.blockSingleAction) {
+                    const touch = e.touches[0];
+                    const dx = touch.clientX - this.dragStart.x;
+                    const dy = touch.clientY - this.dragStart.y;
+                    
+                    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+                         this.hasDragged = true;
+                         e.preventDefault();
+                         const newX = this.lastTransform.x + dx;
+                         const newY = this.lastTransform.y + dy;
+                         this.setTransform(newX, newY, this.transform.scale);
+                    }
+                }
+            }
+
+            handleTouchEnd(e) {
+                if (this.isPinching && e.touches.length < 2) {
+                    if (this.isTwoFingerTapCandidate) {
+                        const duration = Date.now() - this.twoFingerTapStartTime;
+                        if (duration < 300) { 
+                            this.toggleSetting('isDouble');
+                            this.showToast(this.settings.isDouble ? "已切换: 双页模式" : "已切换: 单页模式");
+                        }
+                    }
+                    this.isPinching = false;
+                    this.isDragging = false; 
+                    if (e.touches.length === 0) {
+                        setTimeout(() => { this.blockSingleAction = false; }, 50);
+                    }
+                    return;
+                }
+                
+                if (this.isDragging && e.touches.length === 0) {
+                    this.isDragging = false;
+                    
+                    if (this.blockSingleAction) {
+                        this.blockSingleAction = false;
+                        return;
+                    }
+
+                    if (!this.hasDragged) {
+                        const touch = e.changedTouches[0];
+                        if (!this.isUITarget(touch.target)) {
+                            if (e.cancelable) e.preventDefault(); 
+                            this.handleClickWithDebounce(touch.clientX);
+                        }
+                    }
+                }
+            }
+
+            // --- 点击防抖逻辑 (实现双击复位) ---
+            handleClickWithDebounce(clientX) {
+                const now = Date.now();
+                // 250ms内第二次点击 -> 双击复位
+                if (now - this.lastTapTime < 250) {
+                    clearTimeout(this.clickTimer);
+                    this.fitToScreen();
+                    this.lastTapTime = 0; 
+                } else {
+                    // 第一次点击 -> 延迟执行单击逻辑
+                    this.lastTapTime = now;
+                    this.clickTimer = setTimeout(() => {
+                        this.handleZoneAction(clientX);
+                        this.lastTapTime = 0;
+                    }, 250);
+                }
+            }
+
+            handleZoneAction(clientX) {
+                const width = window.innerWidth;
+                const third = width / 3;
+
+                if (clientX < third) {
+                    this.handleDirectionKey('left');
+                } else if (clientX > third * 2) {
+                    this.handleDirectionKey('right');
+                } else {
+                    this.toggleUI();
+                }
+            }
+
+            handleMouseDown(e) {
+                if (e.button !== 0) return;
+                if (Date.now() - this.lastTouchTime < 500) return; 
+                if (this.isUITarget(e.target)) return; 
+
+                this.isDragging = true;
+                this.hasDragged = false; 
+                this.dragStart = { x: e.clientX, y: e.clientY };
+                this.lastTransform = { ...this.transform };
+                this.viewport.classList.add('grabbing');
+            }
+
+            handleMouseUp(e) {
+                if (Date.now() - this.lastTouchTime < 500) return; 
+
+                this.isDragging = false;
+                this.viewport.classList.remove('grabbing');
+                
+                if (this.isUITarget(e.target)) return;
+
+                if (!this.hasDragged) {
+                     this.handleClickWithDebounce(e.clientX);
+                }
+            }
+
+            toggleSetting(key) {
+                this.settings[key] = !this.settings[key];
+                this.updateUI();
+                this.render();
+            }
+
+            toggleUI() {
+                this.uiVisible = !this.uiVisible;
+                document.body.classList.toggle('ui-hidden', !this.uiVisible);
+                if (!this.uiVisible) {
+                    this.menuPopup.classList.remove('show');
+                    this.sliderPopup.classList.remove('show');
+                }
+            }
+
+            updateUI() {
+                const s = this.settings;
+                const setBtn = (id, text) => {
+                    const btn = document.getElementById(id);
+                    btn.textContent = text;
+                };
+                setBtn('btn-mode', s.isDouble ? "📖 双页模式" : "📄 单页模式");
+                setBtn('btn-dir', s.isRTL ? "⬅️ 日漫(右→左)" : "➡️ 美漫(左→右)");
+                setBtn('btn-offset', s.hasCover ? "📄 独立封面:开" : "📄 独立封面:关");
+            }
+
+            getFileFingerprint(file) {
+                return `manga-progress-${file.name}-${file.size}-${file.lastModified}`;
+            }
+
+            saveProgress() {
+                if (this.fileFingerprint) {
+                    localStorage.setItem(this.fileFingerprint, this.pageNum);
+                }
+            }
+
+            loadProgress(fingerprint) {
+                const saved = localStorage.getItem(fingerprint);
+                return saved ? parseInt(saved, 10) : 1;
+            }
+
+            showToast(msg) {
+                this.toast.textContent = msg;
+                this.toast.style.opacity = 1;
+                setTimeout(() => {
+                    this.toast.style.opacity = 0;
+                }, 2000);
+            }
+
+            loadPDF(e) {
+                const file = e.target.files[0];
+                if (file) this.loadPDFFile(file);
+            }
+
+            async loadPDFFile(file) {
+                if (file.type !== 'application/pdf') return;
+                
+                document.getElementById('file-name').textContent = file.name;
+                this.loader.style.display = 'block';
+                this.menuPopup.classList.remove('show');
+                this.sliderPopup.classList.remove('show');
+                
+                this.fileFingerprint = this.getFileFingerprint(file);
+
+                const buffer = await file.arrayBuffer();
+                try {
+                    this.pdfDoc = await pdfjsLib.getDocument(buffer).promise;
+                    this.pageSlider.max = this.pdfDoc.numPages;
+                    const savedPage = this.loadProgress(this.fileFingerprint);
+                    this.pageNum = (savedPage <= this.pdfDoc.numPages) ? savedPage : 1;
+
+                    if (this.pageNum > 1) this.showToast(`已恢复到第 ${this.pageNum} 页`);
+                    this.emptyState.style.display = 'none';
+                    this.render();
+                } catch (err) {
+                    console.error(err);
+                    alert('PDF加载失败');
+                }
+                this.loader.style.display = 'none';
+            }
+
+            async render() {
+                if (!this.pdfDoc || this.renderLock) return;
+                this.renderLock = true;
+                this.loader.style.display = 'block';
+                this.saveProgress();
+
+                this.pageSlider.value = this.pageNum;
+                this.sliderPreview.textContent = `第 ${this.pageNum} 页`;
+
+                let pages = [];
+                if (!this.settings.isDouble) {
+                    pages = [this.pageNum];
+                } else {
+                    if (this.settings.hasCover && this.pageNum === 1) {
+                        pages = [1];
+                    } else {
+                        let start = this.pageNum;
+                        const isStartEven = (start % 2 === 0);
+                        if (this.settings.hasCover) {
+                            if (!isStartEven) start--; 
+                            if (start < 2) start = 2;
+                        } else {
+                            if (isStartEven) start--;
+                        }
+                        if (start <= this.pdfDoc.numPages) pages.push(start);
+                        if (start + 1 <= this.pdfDoc.numPages) pages.push(start + 1);
+                    }
+                }
+
+                this.pageInfo.textContent = `${pages.join('-')} / ${this.pdfDoc.numPages}`;
+                this.container.innerHTML = '';
+                this.container.style.flexDirection = this.settings.isRTL ? 'row-reverse' : 'row';
+
+                const renderHeight = window.innerHeight * window.devicePixelRatio * 3.0;
+                let totalWidth = 0;
+                let maxHeight = 0;
+
+                for (let pNum of pages) {
+                    const canvas = document.createElement('canvas');
+                    this.container.appendChild(canvas);
+                    const page = await this.pdfDoc.getPage(pNum);
+                    const unscaledViewport = page.getViewport({ scale: 1 });
+                    const scale = renderHeight / unscaledViewport.height;
+                    const viewport = page.getViewport({ scale: scale });
+                    canvas.width = viewport.width;
+                    canvas.height = viewport.height;
+                    totalWidth += viewport.width;
+                    maxHeight = Math.max(maxHeight, viewport.height);
+                    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+                }
+
+                this.initialContentSize = { w: totalWidth, h: maxHeight };
+                this.fitToScreen();
+                this.loader.style.display = 'none';
+                this.renderLock = false;
+            }
+
+            fitToScreen() {
+                if (!this.initialContentSize) return;
+                const vpW = window.innerWidth;
+                const vpH = window.innerHeight;
+                // 去除0.95系数，撑满屏幕
+                const scale = Math.min(vpW / this.initialContentSize.w, vpH / this.initialContentSize.h);
+                const x = (vpW - this.initialContentSize.w * scale) / 2;
+                const y = (vpH - this.initialContentSize.h * scale) / 2;
+                this.setTransform(x, y, scale);
+            }
+
+            setTransform(x, y, scale) {
+                this.transform = { x, y, scale };
+                this.transformLayer.style.transform = `translate3d(${x}px, ${y}px, 0) scale(${scale})`;
+            }
+
+            handleWheel(e) {
+                e.preventDefault();
+                const zoomFactor = 0.1;
+                const direction = e.deltaY > 0 ? -1 : 1;
+                let newScale = this.transform.scale * (1 + direction * zoomFactor);
+                if (newScale < 0.05) newScale = 0.05;
+                if (newScale > 5) newScale = 5;
+
+                const mouseX = e.clientX;
+                const mouseY = e.clientY;
+                const oldScale = this.transform.scale;
+                
+                const newX = mouseX - (mouseX - this.transform.x) * (newScale / oldScale);
+                const newY = mouseY - (mouseY - this.transform.y) * (newScale / oldScale);
+
+                this.setTransform(newX, newY, newScale);
+            }
+
+            handleMouseMove(e) {
+                if (!this.isDragging) return;
+                e.preventDefault();
+                const dx = e.clientX - this.dragStart.x;
+                const dy = e.clientY - this.dragStart.y;
+                if (Math.abs(dx) > 5 || Math.abs(dy) > 5) this.hasDragged = true;
+                const newX = this.lastTransform.x + dx;
+                const newY = this.lastTransform.y + dy;
+                this.setTransform(newX, newY, this.transform.scale);
+            }
+
+            jumpToPage(num) {
+                if (!this.pdfDoc) return;
+                if (num < 1) num = 1;
+                if (num > this.pdfDoc.numPages) num = this.pdfDoc.numPages;
+                this.pageNum = num;
+                this.render();
+            }
+
+            changePage(dir) {
+                if (!this.pdfDoc) return;
+                let step = this.settings.isDouble ? 2 : 1;
+                const pages = this.pageInfo.textContent.split(' / ')[0].split('-');
+                const isCover = (pages.length === 1 && parseInt(pages[0]) === 1);
+
+                if (this.settings.isDouble) {
+                    if (isCover && dir === 1) step = 1;
+                    if (this.pageNum === 2 && this.settings.hasCover && dir === -1) step = 1;
+                }
+
+                const newPage = this.pageNum + (dir * step);
+
+                if (newPage < 1) {
+                    this.showToast("前面没有了");
+                    return;
+                }
+                if (newPage > this.pdfDoc.numPages) {
+                    this.showToast("后面没有了");
+                    return;
+                }
+
+                if (newPage >= 1 && newPage <= this.pdfDoc.numPages) {
+                    this.pageNum = newPage;
+                    this.render();
+                }
+            }
+
+            handleDirectionKey(key) {
+                if (this.settings.isRTL) {
+                    if (key === 'left') this.changePage(1);
+                    else this.changePage(-1);
+                } else {
+                    if (key === 'left') this.changePage(-1);
+                    else this.changePage(1);
+                }
+            }
+        }
+
+        const reader = new ComicReader();
+    </script>
+</body>
+</html>
