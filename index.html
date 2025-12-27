@@ -598,7 +598,9 @@
                     }
 
                     if (this.lastTouchDist > 0) {
-                        const zoomFactor = currentDist / this.lastTouchDist;
+                        const rawZoomFactor = currentDist / this.lastTouchDist;
+                        // 降低缩放灵敏度：将变化量衰减到 30%
+                        const zoomFactor = 1 + (rawZoomFactor - 1) * 0.3;
                         let newScale = this.transform.scale * zoomFactor;
 
                         if (newScale < 0.05) newScale = 0.05;
@@ -879,20 +881,30 @@
 
             handleWheel(e) {
                 e.preventDefault();
-                const zoomFactor = 0.1;
-                const direction = e.deltaY > 0 ? -1 : 1;
-                let newScale = this.transform.scale * (1 + direction * zoomFactor);
-                if (newScale < 0.05) newScale = 0.05;
-                if (newScale > 5) newScale = 5;
 
-                const mouseX = e.clientX;
-                const mouseY = e.clientY;
-                const oldScale = this.transform.scale;
+                // 按住 Ctrl/Cmd 时进行缩放（触摸板捏合也会触发此条件），否则进行平移
+                if (e.ctrlKey || e.metaKey) {
+                    // 缩放模式 - 使用 deltaY 的实际值，配合小系数实现平滑缩放
+                    const zoomSensitivity = 0.02; // 缩放灵敏度，越小越不敏感
+                    let newScale = this.transform.scale * (1 - e.deltaY * zoomSensitivity);
+                    if (newScale < 0.05) newScale = 0.05;
+                    if (newScale > 5) newScale = 5;
 
-                const newX = mouseX - (mouseX - this.transform.x) * (newScale / oldScale);
-                const newY = mouseY - (mouseY - this.transform.y) * (newScale / oldScale);
+                    const mouseX = e.clientX;
+                    const mouseY = e.clientY;
+                    const oldScale = this.transform.scale;
 
-                this.setTransform(newX, newY, newScale);
+                    const newX = mouseX - (mouseX - this.transform.x) * (newScale / oldScale);
+                    const newY = mouseY - (mouseY - this.transform.y) * (newScale / oldScale);
+
+                    this.setTransform(newX, newY, newScale);
+                } else {
+                    // 平移模式：双指滑动移动画面
+                    const sensitivity = 1.5; // 移动灵敏度
+                    const newX = this.transform.x - e.deltaX * sensitivity;
+                    const newY = this.transform.y - e.deltaY * sensitivity;
+                    this.setTransform(newX, newY, this.transform.scale);
+                }
             }
 
             handleMouseMove(e) {
