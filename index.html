@@ -599,8 +599,8 @@
 
                     if (this.lastTouchDist > 0) {
                         const rawZoomFactor = currentDist / this.lastTouchDist;
-                        // 降低缩放灵敏度：将变化量衰减到 30%
-                        const zoomFactor = 1 + (rawZoomFactor - 1) * 0.3;
+                        // iPad 触控屏缩放灵敏度：70%（笔记本触摸板在 handleWheel 中单独处理）
+                        const zoomFactor = 1 + (rawZoomFactor - 1) * 0.7;
                         let newScale = this.transform.scale * zoomFactor;
 
                         if (newScale < 0.05) newScale = 0.05;
